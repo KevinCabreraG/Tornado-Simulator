@@ -1,26 +1,34 @@
 // =====================================================
-// Tornado Sim — Clean UI + REAL Rope-out + Random Subvortices
-// Single-file p5.js sketch.js
+// Tornado Sim (Simple + Clean)
+// - Radar + Mini-map
+// - EF scale
+// - Base/Top size 0-100
+// - 3 types: Cone / Wedge / Rope
+// - Stages: Forming -> Mature -> Rope-out -> Gone
+// - Rope-out ACTUALLY thins + whips + fades out + disappears (no reset)
+// - Rain + Lightning toggles
+// - Reset Damage button
+// - Science fair explanation box
 // =====================================================
 
 let ui = {};
-let storm, city;
-let entities = [];
+let storm;
 let track = [];
+let entities = [];
 let rain = [];
 let bolts = [];
-let subV = [];
+let radar = { sweep: 0, blips: [] };
 
 const MAX_TRACK = 220;
-const MAX_RAIN = 900;
-const MAX_BOLTS = 4;
+const MAX_RAIN = 750;
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
   pixelDensity(1);
   textFont("system-ui, sans-serif");
+  noStroke();
 
-  // Prevent arrow keys from scrolling the page (Chromebook fix)
+  // Chromebook fix: arrow keys shouldn't scroll the page
   window.addEventListener(
     "keydown",
     (e) => {
@@ -32,7 +40,7 @@ function setup() {
   );
 
   buildUI();
-  resetAll(true);
+  newStorm(true);
   initRain();
 }
 
@@ -44,70 +52,35 @@ function windowResized() {
 function draw() {
   const view = getView();
 
-  // Apply UI -> storm every frame (safe)
   applyUI();
 
-  // Background / scene
   drawScene(view);
 
-  // Update
   updateStorm();
   updateEntities();
   updateRain(view);
   updateLightning(view);
-  updateSubvortices();
 
-  // Draw
   drawTornado(view);
-  drawSubvortices(view);
   drawRain(view);
   drawLightning(view);
 
+  drawRadar(view);
   drawMiniMap(view);
   drawHUD(view);
+  drawScienceFairBox(view);
 }
 
 // =====================================================
-// VIEW / SCENE
+// Layout
 // =====================================================
 function getView() {
   const panelW = 350;
   return { x: panelW, w: width - panelW, h: height };
 }
 
-function drawScene(v) {
-  background(14);
-
-  // main view background
-  noStroke();
-  fill(18);
-  rect(v.x, 0, v.w, v.h);
-
-  const cloudY = v.h * 0.18;
-  const groundY = v.h * 0.78;
-
-  // cloud base
-  fill(15);
-  ellipse(v.x + v.w * 0.62, cloudY + 18, v.w * 1.05, 170);
-  fill(12);
-  ellipse(v.x + v.w * 0.62, cloudY + 34, v.w * 0.75, 120);
-
-  // ground
-  fill(24);
-  rect(v.x, groundY, v.w, v.h - groundY);
-
-  // simple horizon silhouettes
-  fill(0, 95);
-  for (let i = 0; i < 30; i++) {
-    const x = v.x + (i / 29) * v.w;
-    const w = 12 + noise(i * 0.6 + 10) * 44;
-    const h = 10 + noise(i * 0.55 + 50) * 50;
-    rect(x, groundY - h, w, h, 2);
-  }
-}
-
 // =====================================================
-// UI
+// UI (clean + simple)
 // =====================================================
 function buildUI() {
   document.body.style.overflow = "hidden";
@@ -122,43 +95,32 @@ function buildUI() {
   ui.panel.style("color", "#eee");
   ui.panel.style("box-sizing", "border-box");
 
-  title("🌪️ Tornado Sim");
+  title("🌪️ Tornado Sim (Simple)");
 
-  ui.btnNew = button("🌩️ New storm", () => resetAll(true));
-  ui.btnDamage = button("🧹 Reset damage", () => resetAll(false));
+  ui.btnNew = button("🌩️ New Storm", () => newStorm(true));
+  ui.btnResetDamage = button("🧹 Reset Damage", () => resetDamage());
 
-  section("Lifetime");
-  ui.keepTornado = checkbox("Keep tornado", true);
-  ui.lifeS = sliderWithValue("Life before rope-out (s)", 3, 60, 18, 1);
-  ui.ropeDurS = sliderWithValue("Rope-out duration (s)", 3, 30, 10, 1);
+  hr();
 
-  section("Type");
-  ui.type = selectRow("Tornado type", ["cone","wedge","rope","needle","segmented","sheathed","loop"], "cone");
+  label("EF Scale");
+  ui.ef = selectRow(["EF0", "EF1", "EF2", "EF3", "EF4", "EF5"], "EF3");
 
-  ui.spinDir = radioRow("Rotation", ["1","-1"], "1"); // 1 cyclonic, -1 anti
+  label("Tornado Type");
+  ui.type = selectRow(["Cone", "Wedge", "Rope"], "Cone");
 
-  section("Shape");
-  ui.baseW = sliderWithValue("Base size", 60, 520, 224, 1);
-  ui.topW = sliderWithValue("Top size", 80, 600, 360, 1);
-  ui.height = sliderWithValue("Height", 180, 520, 330, 1);
+  hr();
 
-  ui.spinDef = sliderWithValue("Spin definition", 0.8, 5.0, 2.8, 0.1);
-  ui.edgeChaos = sliderWithValue("Edge chaos", 0.0, 1.2, 0.65, 0.01);
-  ui.opacity = sliderWithValue("Opacity", 40, 255, 170, 1);
-  ui.debris = sliderWithValue("Debris", 0.0, 1.0, 0.75, 0.01);
+  ui.baseSize = sliderLine("Base size (0–100)", 0, 100, 55, 1);
+  ui.topSize = sliderLine("Top size (0–100)", 0, 100, 70, 1);
 
-  section("Subvortex arms");
-  ui.enableArms = checkbox("Enable arms", true);
-  ui.keepSub = checkbox("Keep subvortices", false);
-  ui.subLife = sliderWithValue("Subvortex lifetime (s)", 2, 20, 10, 1);
-  ui.armsCount = sliderWithValue("Arms count", 0, 12, 7, 1);
-  ui.armLen = sliderWithValue("Arm length", 0.5, 3.5, 1.8, 0.1);
-  ui.armGirth = sliderWithValue("Arm girth", 2, 18, 10, 1);
-  ui.armSpacing = sliderWithValue("Arm spacing", 0.7, 3.0, 1.7, 0.1);
+  hr();
 
-  section("Weather");
-  ui.rainOn = checkbox("Rain (particles)", true);
-  ui.lightningOn = checkbox("Lightning", true);
+  ui.rainOn = checkbox("🌧️ Rain", true);
+  ui.lightningOn = checkbox("⚡ Lightning", true);
+
+  hr();
+
+  small("Controls: Arrow keys steer the tornado on the mini-map.", 12);
 
   // ---------- UI helpers ----------
   function title(t) {
@@ -168,18 +130,27 @@ function buildUI() {
     d.style("font-weight", "800");
     d.style("margin", "0 0 10px 0");
   }
-  function section(t) {
+  function hr() {
+    const d = createDiv("");
+    d.parent(ui.panel);
+    d.style("height", "1px");
+    d.style("background", "rgba(255,255,255,0.14)");
+    d.style("margin", "12px 0");
+  }
+  function label(t) {
     const d = createDiv(t);
     d.parent(ui.panel);
-    d.style("margin", "14px 0 8px 0");
     d.style("font-size", "13px");
     d.style("font-weight", "800");
+    d.style("margin", "10px 0 6px 0");
     d.style("opacity", "0.95");
-    const hr = createDiv("");
-    hr.parent(ui.panel);
-    hr.style("height", "1px");
-    hr.style("background", "rgba(255,255,255,0.12)");
-    hr.style("margin", "8px 0 10px 0");
+  }
+  function small(t, sz) {
+    const d = createDiv(t);
+    d.parent(ui.panel);
+    d.style("font-size", sz + "px");
+    d.style("opacity", "0.9");
+    d.style("margin", "8px 0 0 0");
   }
   function button(t, fn) {
     const b = createButton(t);
@@ -203,10 +174,20 @@ function buildUI() {
     c.style("color", "#eee");
     return c;
   }
-  function sliderWithValue(labelTxt, a, b, v, step) {
+  function selectRow(opts, selected) {
+    const s = createSelect();
+    opts.forEach((o) => s.option(o));
+    s.selected(selected);
+    s.parent(ui.panel);
+    s.style("width", "100%");
+    s.style("padding", "6px");
+    s.style("border-radius", "10px");
+    return s;
+  }
+  function sliderLine(labelText, a, b, v, step) {
     const wrap = createDiv("");
     wrap.parent(ui.panel);
-    wrap.style("margin", "6px 0 10px 0");
+    wrap.style("margin", "8px 0");
 
     const lab = createDiv("");
     lab.parent(wrap);
@@ -217,134 +198,97 @@ function buildUI() {
     s.parent(wrap);
     s.style("width", "100%");
 
-    const update = () => lab.html(`${labelTxt}: <b>${s.value()}</b>`);
+    const update = () => lab.html(`${labelText}: <b>${s.value()}</b>`);
     s.input(update);
     update();
 
     return s;
   }
-  function selectRow(labelTxt, opts, selected) {
-    const wrap = createDiv("");
-    wrap.parent(ui.panel);
-    wrap.style("margin", "6px 0 10px 0");
-
-    const lab = createDiv(labelTxt);
-    lab.parent(wrap);
-    lab.style("font-size", "12px");
-    lab.style("opacity", "0.95");
-    lab.style("margin-bottom", "4px");
-
-    const sel = createSelect();
-    opts.forEach(o => sel.option(o));
-    sel.selected(selected);
-    sel.parent(wrap);
-    sel.style("width", "100%");
-    sel.style("padding", "6px");
-    sel.style("border-radius", "10px");
-    return sel;
-  }
-  function radioRow(labelTxt, opts, selected) {
-    const wrap = createDiv("");
-    wrap.parent(ui.panel);
-    wrap.style("margin", "8px 0 6px 0");
-
-    const lab = createDiv(labelTxt);
-    lab.parent(wrap);
-    lab.style("font-size", "12px");
-    lab.style("opacity", "0.95");
-    lab.style("margin-bottom", "4px");
-
-    const r = createRadio();
-    r.parent(wrap);
-    opts.forEach(o => r.option(o, o));
-    r.selected(selected);
-    r.style("color", "#eee");
-    r.style("display", "flex");
-    r.style("gap", "10px");
-    return r;
-  }
 }
 
 function applyUI() {
-  storm.keepTornado = ui.keepTornado.checked();
-  storm.lifeS = ui.lifeS.value();
-  storm.ropeDurS = ui.ropeDurS.value();
-
-  storm.type = ui.type.value();
-  storm.spinDir = parseInt(ui.spinDir.value(), 10); // 1 or -1
-
-  storm.baseW = ui.baseW.value();
-  storm.topW = ui.topW.value();
-  storm.height = ui.height.value();
-
-  storm.spinDef = ui.spinDef.value();
-  storm.edgeChaos = ui.edgeChaos.value();
-  storm.opacity = ui.opacity.value();
-  storm.debris = ui.debris.value();
-
-  storm.enableArms = ui.enableArms.checked();
-  storm.keepSub = ui.keepSub.checked();
-  storm.subLife = ui.subLife.value();
-  storm.armsCount = ui.armsCount.value();
-  storm.armLen = ui.armLen.value();
-  storm.armGirth = ui.armGirth.value();
-  storm.armSpacing = ui.armSpacing.value();
-
+  storm.ef = ui.ef.value();
+  storm.type = ui.type.value(); // "Cone" "Wedge" "Rope"
+  storm.basePct = ui.baseSize.value(); // 0..100
+  storm.topPct = ui.topSize.value(); // 0..100
   storm.rainOn = ui.rainOn.checked();
   storm.lightningOn = ui.lightningOn.checked();
 }
 
 // =====================================================
-// STORM / PHASES (THIS FIXES ROPE-OUT)
+// Scene background
 // =====================================================
-function resetAll(resetCity) {
+function drawScene(v) {
+  background(14);
+
+  // main view
+  fill(18);
+  rect(v.x, 0, v.w, v.h);
+
+  const cloudY = v.h * 0.18;
+  const groundY = v.h * 0.78;
+
+  // cloud base
+  fill(15);
+  ellipse(v.x + v.w * 0.62, cloudY + 18, v.w * 1.05, 170);
+  fill(12);
+  ellipse(v.x + v.w * 0.62, cloudY + 34, v.w * 0.75, 120);
+
+  // ground
+  fill(24);
+  rect(v.x, groundY, v.w, v.h - groundY);
+
+  // horizon silhouette
+  fill(0, 90);
+  for (let i = 0; i < 32; i++) {
+    const x = v.x + (i / 31) * v.w;
+    const w = 10 + noise(i * 0.6 + 10) * 44;
+    const h = 8 + noise(i * 0.5 + 50) * 55;
+    rect(x, groundY - h, w, h, 2);
+  }
+}
+
+// =====================================================
+// Storm logic (REAL rope-out + disappear)
+// =====================================================
+function newStorm(resetCity) {
   storm = {
-    // minimap coords 0..1
     mx: 0.50,
-    my: 0.56,
+    my: 0.55,
 
     bornMs: millis(),
-    phase: "forming", // forming -> mature -> ropeout -> dissipated
+    stage: "Forming", // Forming -> Mature -> Rope-out -> Gone
+
+    // timings (simple + stable)
+    formingS: 3.0,
+    matureS: 12.0, // after forming, stay mature this long
+    ropeOutS: 10.0, // rope-out duration
+    gone: false,
+
     ropeStartMs: 0,
-    dissipateStartMs: 0,
+    goneStartMs: 0,
 
-    // defaults overwritten by UI each frame
-    keepTornado: true,
-    lifeS: 18,
-    ropeDurS: 10,
-    type: "cone",
-    spinDir: 1,
-
-    baseW: 224,
-    topW: 360,
-    height: 330,
-    spinDef: 2.8,
-    edgeChaos: 0.65,
-    opacity: 170,
-    debris: 0.75,
-
-    enableArms: true,
-    keepSub: false,
-    subLife: 10,
-    armsCount: 7,
-    armLen: 1.8,
-    armGirth: 10,
-    armSpacing: 1.7,
-
+    // UI driven
+    ef: "EF3",
+    type: "Cone",
+    basePct: 55,
+    topPct: 70,
     rainOn: true,
     lightningOn: true,
 
-    score: 0
+    damage: 0
   };
 
   track = [];
+  radar.blips = [];
   bolts = [];
-  subV = [];
 
   if (resetCity) buildCity();
 }
 
 function updateStorm() {
+  if (storm.gone) return;
+
   const dt = deltaTime / 1000;
 
   // Arrow key steering
@@ -357,419 +301,279 @@ function updateStorm() {
   storm.mx = constrain(storm.mx, 0.03, 0.97);
   storm.my = constrain(storm.my, 0.03, 0.97);
 
-  // Track
+  // track
   track.push({ mx: storm.mx, my: storm.my });
   if (track.length > MAX_TRACK) track.shift();
 
+  // stage timing
   const ageS = (millis() - storm.bornMs) / 1000;
 
-  // Phase logic:
-  // forming ~ 3s
-  if (storm.phase === "forming" && ageS >= 3) storm.phase = "mature";
-
-  // ropeout starts after lifeS
-  if (storm.phase === "mature" && ageS >= storm.lifeS) {
-    storm.phase = "ropeout";
-    storm.ropeStartMs = millis();
-  }
-
-  // after ropeout finishes, either stay (keep) or dissipate + vanish
-  if (storm.phase === "ropeout") {
-    const ropeProg = ropeProgress();
-    if (ropeProg >= 1) {
-      if (storm.keepTornado) {
-        // If keep is ON, stay in ropeout but stop progressing (frozen at max rope look)
-        // (looks like a skinny rope tornado hanging around)
-      } else {
-        storm.phase = "dissipated";
-        storm.dissipateStartMs = millis();
-      }
-    }
-  }
-
-  // dissipated fades out then stays gone (no reset!)
-  // User can press New storm anytime.
-}
-
-function ropeProgress() {
-  if (storm.phase !== "ropeout") return 0;
-  const t = (millis() - storm.ropeStartMs) / 1000;
-  return constrain(t / max(1, storm.ropeDurS), 0, 1);
-}
-
-function dissipateAlpha() {
-  if (storm.phase !== "dissipated") return 1;
-  const t = (millis() - storm.dissipateStartMs) / 1000;
-  // fade out over 2 seconds
-  return 1 - constrain(t / 2.0, 0, 1);
-}
-
-// =====================================================
-// TORNADO DRAW (more clear spin + real ropeout)
-// =====================================================
-function drawTornado(v) {
-  const alpha = dissipateAlpha();
-  if (alpha <= 0.001) return;
-
-  const cloudY = v.h * 0.18 + 16;
-  const groundY = v.h * 0.78;
-
-  // tornado x based on mx
-  const cx = v.x + storm.mx * v.w;
-
-  // top anchored, bottom reaches ground based on height
-  const yTop = cloudY;
-  const yBot = min(groundY, yTop + storm.height);
-
-  // forming factor
-  const ageS = (millis() - storm.bornMs) / 1000;
-  const form = constrain(ageS / 3.0, 0, 1);
-
-  // rope-out progress
-  const rp = ropeProgress();
-
-  // widths (use your sliders, but fix wedge rule: top wider than bottom)
-  let topW = storm.topW;
-  let baseW = storm.baseW;
-
-  // Type corrections / shape feel
-  if (storm.type === "wedge") {
-    // wedge: top much wider than bottom, shorter feel
-    topW = max(topW, baseW * 1.4);
-  }
-  if (storm.type === "rope") {
-    topW *= 0.5;
-    baseW *= 0.35;
-  }
-  if (storm.type === "needle") {
-    topW *= 0.45;
-    baseW *= 0.22;
-  }
-
-  // ropeout thinning into a tube
-  const thin = (storm.phase === "ropeout")
-    ? lerp(1.0, 0.16, smoothstep(0.05, 0.85, rp))
-    : 1.0;
-
-  // when dissipating, also shrink
-  const dis = lerp(1.0, 0.7, 1 - alpha);
-
-  topW *= thin * dis;
-  baseW *= thin * dis;
-
-  // debris ring
-  noStroke();
-  fill(140, (storm.opacity * 0.45) * alpha);
-  ellipse(cx, yBot + 18, baseW * (1.8 + storm.debris), baseW * (0.45 + 0.25 * storm.debris));
-
-  // funnel layers
-  const steps = 170;
-  const t = frameCount * 0.06;
-  const dir = storm.spinDir;
-
-  for (let i = 0; i <= steps; i++) {
-    const p = i / steps; // 0 top -> 1 bottom
-    const y = lerp(yTop, yBot, p);
-
-    // width at p
-    let w = widthAt(p, topW, baseW, storm.type);
-
-    // segmented
-    if (storm.type === "segmented") {
-      const seg = 0.75 + 0.35 * pow(max(0, sin(PI * 10 * p + t * 1.2)), 2);
-      w *= seg;
-    }
-
-    // sheathed (fat veil near top)
-    if (storm.type === "sheathed") {
-      const veil = 1.0 + 0.70 * smoothstep(0.0, 0.25, 1 - p);
-      w *= veil;
-    }
-
-    // edge chaos
-    const chaos = (noise(p * 3.1, t * 0.12) - 0.5) * (storm.edgeChaos * 24);
-
-    // clear spin banding
-    const spin = sin((t * storm.spinDef * dir) + p * 18) * w * 0.26;
-
-    // rope whip bend (only during ropeout)
-    const whip = (storm.phase === "ropeout")
-      ? (rp * 52 * pow(p, 1.5) * sin(t * 6 + p * 12))
-      : 0;
-
-    const a = storm.opacity * (0.15 + 0.85 * form) * (0.55 + 0.45 * (1 - p)) * alpha;
-
-    // body
-    fill(230, a);
-    ellipse(cx + chaos + spin + whip, y, w, lerp(8, 16, 1 - p));
-
-    // band strokes (more defined)
-    stroke(40, a * 0.55);
-    strokeWeight(max(1.0, w * 0.013));
-    const k = 0.22 + 0.14 * (1 - p);
-    const x1 = (cx + chaos + whip) - w * 0.46;
-    const x2 = (cx + chaos + whip) + w * 0.46;
-    line(x1, y - w * k, x2, y + w * k);
-
-    stroke(255, a * 0.20);
-    strokeWeight(max(0.9, w * 0.010));
-    line(x1, y + w * k * 0.55, x2, y - w * k * 0.55);
-    noStroke();
-  }
-
-  // loop type: add loop near base
-  if (storm.type === "loop" && form > 0.9 && alpha > 0.2) {
-    const lp = 0.88;
-    const y = lerp(yTop, yBot, lp);
-    const w = widthAt(lp, topW, baseW, storm.type);
-    const loopX = cx + sin(t * 0.8) * (w * 0.7);
-
-    stroke(255, 120 * alpha);
-    strokeWeight(3);
-    noFill();
-    ellipse(loopX, y, w * 1.2, w * 0.45);
-    noStroke();
-  }
-}
-
-function widthAt(p, topW, baseW, type) {
-  if (type === "wedge") return lerp(topW, baseW, pow(p, 0.55)); // top wider than bottom
-  if (type === "rope") return lerp(topW * 0.35, baseW * 0.25, pow(p, 1.2));
-  if (type === "needle") return lerp(topW * 0.30, baseW * 0.15, pow(p, 1.35));
-  if (type === "loop") return lerp(topW * 0.42, baseW * 0.22, pow(p, 1.05));
-  return lerp(topW, baseW, pow(p, 0.95));
-}
-
-// =====================================================
-// SUBVORTICES — thicker, bigger, random pop-out then fade
-// =====================================================
-function updateSubvortices() {
-  if (!storm.enableArms || storm.armsCount <= 0) {
-    subV = [];
+  if (ageS < storm.formingS) {
+    storm.stage = "Forming";
     return;
   }
 
-  const dt = deltaTime / 1000;
-  const target = storm.armsCount;
+  const afterForm = ageS - storm.formingS;
 
-  // spawn randomly until target count is reached
-  while (subV.length < target) {
-    // spawn with randomness so they don’t appear all at once
-    if (random() < 0.25) subV.push(makeSub());
-    else break;
+  if (afterForm < storm.matureS) {
+    storm.stage = "Mature";
+    return;
   }
 
-  // update
-  for (const s of subV) {
-    s.age += dt;
-    s.phase += dt * s.omega;
-    s.rad = lerp(s.rad, s.radTarget, dt * 1.6);
-
-    if (!storm.keepSub) {
-      s.alpha = 1 - constrain(s.age / storm.subLife, 0, 1);
-    } else {
-      s.alpha = 1;
-    }
+  // Rope-out stage begins
+  if (storm.stage !== "Rope-out") {
+    storm.stage = "Rope-out";
+    storm.ropeStartMs = millis();
   }
 
-  // remove finished ones, then allow new ones to spawn later
-  if (!storm.keepSub) {
-    subV = subV.filter(s => s.age < storm.subLife);
+  const ropeProg = ropeProgress(); // 0..1
+
+  // When rope-out finishes: fade out + disappear (NO reset)
+  if (ropeProg >= 1) {
+    storm.stage = "Gone";
+    storm.gone = true;
+    storm.goneStartMs = millis();
   }
 
-  // hard cap safety
-  if (subV.length > 14) subV.length = 14;
+  // radar sweep
+  radar.sweep += dt * 1.25;
+  if (radar.sweep > TWO_PI) radar.sweep -= TWO_PI;
+
+  // blips decay
+  for (const b of radar.blips) b.ttl -= dt;
+  radar.blips = radar.blips.filter((b) => b.ttl > 0);
 }
 
-function makeSub() {
-  return {
-    rad: random(18, 55) * storm.armSpacing,
-    radTarget: random(25, 80) * storm.armSpacing,
-    omega: random(2.0, 4.2) * (random() < 0.5 ? 1 : -1),
-    phase: random(TWO_PI),
-    age: 0,
-    alpha: 1,
-    thickness: storm.armGirth * random(0.8, 1.2), // thicker
-    length: storm.armLen * random(55, 105), // longer
-    twist: random(0.9, 1.8)
-  };
+function ropeProgress() {
+  if (storm.stage !== "Rope-out") return 0;
+  const t = (millis() - storm.ropeStartMs) / 1000;
+  return constrain(t / max(1, storm.ropeOutS), 0, 1);
 }
 
-function drawSubvortices(v) {
-  const alpha = dissipateAlpha();
-  if (alpha <= 0.001) return;
-  if (!storm.enableArms || subV.length === 0) return;
+function goneAlpha() {
+  // fade out over 1.5s after stage becomes Gone
+  if (!storm.gone) return 1;
+  const t = (millis() - storm.goneStartMs) / 1000;
+  return 1 - constrain(t / 1.5, 0, 1);
+}
+
+// =====================================================
+// Tornado drawing (simple but good-looking)
+// =====================================================
+function drawTornado(v) {
+  const aGone = goneAlpha();
+  if (aGone <= 0.001) return; // fully disappeared
 
   const cloudY = v.h * 0.18 + 16;
   const groundY = v.h * 0.78;
   const cx = v.x + storm.mx * v.w;
 
+  // tornado ALWAYS reaches ground
   const yTop = cloudY;
-  const yBot = min(groundY, yTop + storm.height);
-  const baseY = lerp(yTop, yBot, 0.82);
+  const yBot = groundY;
 
-  // approximate core width near base
-  const coreW = widthAt(0.82, storm.topW, storm.baseW, storm.type);
+  // forming: small funnel at top and grows down
+  const ageS = (millis() - storm.bornMs) / 1000;
+  const formP = constrain(ageS / storm.formingS, 0, 1);
+  const reachY = lerp(yTop + 20, yBot, smoothstep(0, 1, formP));
 
-  const dir = storm.spinDir;
+  // sizes from 0..100 mapped to pixels (simple!)
+  // EF slightly scales size so EF5 feels bigger
+  const efMul = map(efStrength(storm.ef), 0, 5, 0.85, 1.25);
+
+  let baseW = map(storm.basePct, 0, 100, 20, 320) * efMul;
+  let topW = map(storm.topPct, 0, 100, 60, 520) * efMul;
+
+  // enforce wedge rule: top wider than bottom
+  if (storm.type === "Wedge") topW = max(topW, baseW * 1.35);
+
+  // Rope type: naturally thin
+  if (storm.type === "Rope") {
+    topW *= 0.55;
+    baseW *= 0.35;
+  }
+
+  // Rope-out: thin into a tube, whip, then fade
+  const rp = ropeProgress(); // 0..1
+  const ropeThin = (storm.stage === "Rope-out") ? lerp(1.0, 0.12, smoothstep(0.05, 0.95, rp)) : 1.0;
+  topW *= ropeThin;
+  baseW *= ropeThin;
+
+  // visual parameters
+  const opacity = 175 * aGone;
+  const dir = 1; // keep simple; if you want anti-cyclonic later we can add toggle back
+
+  // debris ring (simple)
+  fill(140, 70 * aGone);
+  ellipse(cx, yBot + 18, baseW * 1.8, baseW * 0.45);
+
+  // draw funnel
+  const steps = 150;
   const t = frameCount * 0.06;
 
-  for (const s of subV) {
-    const a = 180 * s.alpha * alpha;
+  for (let i = 0; i <= steps; i++) {
+    const p = i / steps; // 0 top -> 1 bottom
+    const y = lerp(yTop, reachY, p);
 
-    const ang = (s.phase + sin(t * 0.6) * 0.15) * dir;
-    const rx = (coreW * 0.35) + s.rad;
-    const x0 = cx + cos(ang) * rx;
-    const y0 = baseY + sin(ang) * (rx * 0.18);
+    // width along height
+    let w;
+    if (storm.type === "Cone") w = lerp(topW, baseW, pow(p, 0.95));
+    else if (storm.type === "Wedge") w = lerp(topW, baseW, pow(p, 0.55));
+    else w = lerp(topW * 0.35, baseW * 0.25, pow(p, 1.25)); // Rope
 
-    const segs = 18;
-    stroke(255, a * 0.30);
-    strokeWeight(s.thickness);
-    noFill();
-    beginShape();
-    for (let i = 0; i <= segs; i++) {
-      const p = i / segs;
-      const curl = sin((p * PI * 1.6) + s.phase * s.twist) * (1 - p);
-      const ax = x0 + cos(ang + curl) * (s.length * p);
-      const ay = y0 + sin(ang + curl) * (s.length * p) * 0.28 + p * 10;
-      curveVertex(ax, ay);
-    }
-    endShape();
+    // clearer spin
+    const spin = sin((t * 3.0 * dir) + p * 18) * w * 0.25;
 
-    stroke(40, a * 0.38);
-    strokeWeight(max(2, s.thickness * 0.48));
-    beginShape();
-    for (let i = 0; i <= segs; i++) {
-      const p = i / segs;
-      const curl = sin((p * PI * 1.6) + s.phase * s.twist) * (1 - p);
-      const ax = x0 + cos(ang + curl) * (s.length * p);
-      const ay = y0 + sin(ang + curl) * (s.length * p) * 0.28 + p * 10;
-      curveVertex(ax, ay);
-    }
-    endShape();
+    // rope-out whip bend (tube whips near bottom)
+    const whip = (storm.stage === "Rope-out")
+      ? (rp * 60 * pow(p, 1.55) * sin(t * 6 + p * 14))
+      : 0;
+
+    // fade slightly near top
+    const a = opacity * (0.35 + 0.65 * (1 - p));
+
+    fill(230, a);
+    ellipse(cx + spin + whip, y, w, 12);
+
+    // band line for extra “spin definition”
+    stroke(40, a * 0.55);
+    strokeWeight(max(1.0, w * 0.012));
+    const k = 0.22 + 0.14 * (1 - p);
+    line(cx - w * 0.46 + whip, y - w * k, cx + w * 0.46 + whip, y + w * k);
     noStroke();
-
-    // little fat core at base
-    fill(235, 120 * s.alpha * alpha);
-    ellipse(x0, y0, s.thickness * 1.4, s.thickness * 1.0);
   }
 }
 
+function efStrength(ef) {
+  return { EF0: 0, EF1: 1, EF2: 2, EF3: 3, EF4: 4, EF5: 5 }[ef] ?? 3;
+}
+
 // =====================================================
-// MINIMAP CITY (emoji) + damage
+// Radar (simple + nice)
+// =====================================================
+function drawRadar(v) {
+  const rw = 220, rh = 220;
+  const rx = v.x + v.w - rw - 14;
+  const ry = 14;
+
+  fill(0, 170);
+  rect(rx, ry, rw, rh, 16);
+
+  const cx = rx + rw / 2;
+  const cy = ry + rh / 2;
+  const r = 92;
+
+  // rings
+  stroke(60, 160);
+  strokeWeight(1);
+  noFill();
+  circle(cx, cy, r * 2);
+  circle(cx, cy, r * 1.35);
+  circle(cx, cy, r * 0.70);
+  line(cx - r, cy, cx + r, cy);
+  line(cx, cy - r, cx, cy + r);
+
+  // sweep
+  const s = radar.sweep;
+  const sx = cx + cos(s) * r;
+  const sy = cy + sin(s) * r;
+  stroke(120, 220);
+  line(cx, cy, sx, sy);
+
+  // tornado dot
+  noStroke();
+  fill(255);
+  const tx = cx + (storm.mx - 0.5) * r * 2;
+  const ty = cy + (storm.my - 0.5) * r * 2;
+  circle(tx, ty, 6);
+
+  // blips
+  for (const b of radar.blips) {
+    const bx = cx + (b.mx - 0.5) * r * 2;
+    const by = cy + (b.my - 0.5) * r * 2;
+    fill(255, 180 * constrain(b.ttl / 2.0, 0, 1));
+    circle(bx, by, 5);
+  }
+
+  noStroke();
+  fill(230);
+  textAlign(LEFT, CENTER);
+  textSize(12);
+  text("Radar", rx + 12, ry + 16);
+}
+
+// =====================================================
+// Mini-map (simple city + damage)
 // =====================================================
 function buildCity() {
   entities = [];
   track = [];
 
-  // simple road grid
-  city = {
-    roads: [
-      { x1: 0.08, y1: 0.28, x2: 0.92, y2: 0.28 },
-      { x1: 0.08, y1: 0.55, x2: 0.92, y2: 0.55 },
-      { x1: 0.08, y1: 0.80, x2: 0.92, y2: 0.80 },
-      { x1: 0.25, y1: 0.08, x2: 0.25, y2: 0.92 },
-      { x1: 0.50, y1: 0.08, x2: 0.50, y2: 0.92 },
-      { x1: 0.75, y1: 0.08, x2: 0.75, y2: 0.92 },
-    ]
-  };
-
-  // buildings + trees
-  for (let i = 0; i < 10; i++) entities.push(makeEntity("🏢", "building", random(0.12, 0.88), random(0.12, 0.88)));
-  for (let i = 0; i < 10; i++) entities.push(makeEntity("🌳", "tree", random(0.12, 0.88), random(0.12, 0.88)));
-
-  // cars move on lanes
-  for (let i = 0; i < 9; i++) {
-    const lane = random([
-      { kind: "h", y: 0.28 }, { kind: "h", y: 0.55 }, { kind: "h", y: 0.80 },
-      { kind: "v", x: 0.25 }, { kind: "v", x: 0.50 }, { kind: "v", x: 0.75 }
-    ]);
-    const c = makeEntity("🚗", "car", 0.5, 0.5);
-    c.lane = lane;
-    c.t = random(0, 1);
-    c.dir = random([-1, 1]);
-    c.speed = random(0.08, 0.14);
-    entities.push(c);
-  }
+  // simple emoji city (just enough for Reset Damage to matter)
+  for (let i = 0; i < 8; i++) entities.push(makeEnt("🏢", "building"));
+  for (let i = 0; i < 8; i++) entities.push(makeEnt("🌳", "tree"));
+  for (let i = 0; i < 6; i++) entities.push(makeEnt("🚗", "car"));
 }
 
-function makeEntity(char, kind, x, y) {
+function makeEnt(kindChar, kind) {
   return {
-    char, kind, x, y,
+    char: kindChar,
+    kind,
+    x: random(0.12, 0.88),
+    y: random(0.12, 0.88),
     hit: false,
-    state: "ok",
     rot: 0,
     flip: false,
-    vx: 0, vy: 0,
-    fade: 1,
-    lane: null,
-    t: 0,
-    dir: 1,
-    speed: 0
+    vx: 0,
+    vy: 0,
+    fade: 1
   };
+}
+
+function resetDamage() {
+  radar.blips = [];
+  storm.damage = 0;
+  for (const e of entities) {
+    e.hit = false;
+    e.rot = 0;
+    e.flip = false;
+    e.vx = 0;
+    e.vy = 0;
+    e.fade = 1;
+  }
 }
 
 function updateEntities() {
-  const dt = deltaTime / 1000;
-  const r = 0.06; // minimap hit radius feel
+  if (storm.gone) return;
 
-  // cars move
+  const r = map(efStrength(storm.ef), 0, 5, 0.03, 0.10); // EF affects hit radius
+  const dmg = map(efStrength(storm.ef), 0, 5, 20, 180);
+
   for (const e of entities) {
-    if (e.kind === "car" && e.state === "ok") {
-      e.t += e.dir * e.speed * dt;
-      if (e.t < 0) { e.t = 0; e.dir *= -1; }
-      if (e.t > 1) { e.t = 1; e.dir *= -1; }
-
-      if (e.lane.kind === "h") {
-        e.x = lerp(0.10, 0.90, e.t);
-        e.y = e.lane.y;
-        e.rot = (e.dir > 0) ? 0 : PI;
-      } else {
-        e.x = e.lane.x;
-        e.y = lerp(0.10, 0.90, e.t);
-        e.rot = (e.dir > 0) ? HALF_PI : -HALF_PI;
-      }
-    }
-  }
-
-  // impacts (simple but stable)
-  for (const e of entities) {
-    const d = dist(storm.mx, storm.my, e.x, e.y);
-
-    if (!e.hit && d < r * 1.6) {
-      if (e.kind === "building") e.rot = (noise(frameCount * 0.03, e.x * 9) - 0.5) * 0.35;
-      if (e.kind === "tree") e.rot = (noise(frameCount * 0.04, e.y * 9) - 0.5) * 0.55;
-    }
-
-    if (!e.hit && d < r) {
+    if (!e.hit && dist(storm.mx, storm.my, e.x, e.y) < r) {
       e.hit = true;
-      const ang = atan2(e.y - storm.my, e.x - storm.mx);
 
-      if (e.kind === "car") {
-        e.state = "destroyed";
-        e.flip = true;
-        e.vx = cos(ang) * 0.55;
-        e.vy = sin(ang) * 0.55;
-        e.rot += (random() < 0.5 ? -1 : 1) * 0.6;
-      } else if (e.kind === "tree") {
-        e.state = "destroyed";
-        e.vx = cos(ang) * 0.24;
-        e.vy = sin(ang) * 0.24;
-        e.rot = (random() < 0.5 ? -1 : 1) * HALF_PI;
-      } else {
-        e.state = "damaged";
-        e.vx = cos(ang) * 0.14;
-        e.vy = sin(ang) * 0.14;
-        e.rot = (random() < 0.5 ? -1 : 1) * (PI / 2.3);
-      }
+      const ang = atan2(e.y - storm.my, e.x - storm.mx);
+      const force = (e.kind === "car") ? 0.50 : (e.kind === "tree") ? 0.25 : 0.14;
+
+      e.vx = cos(ang) * force;
+      e.vy = sin(ang) * force;
+      e.flip = (e.kind === "car");
+      e.rot = (random() < 0.5 ? -1 : 1) * (e.kind === "building" ? PI / 2.5 : PI / 2);
+
+      storm.damage += dmg;
+
+      radar.blips.push({ mx: e.x, my: e.y, ttl: 2.0 });
+      if (radar.blips.length > 14) radar.blips.shift();
     }
 
-    if (e.state !== "ok") {
-      e.x = constrain(e.x + e.vx * dt, 0.02, 0.98);
-      e.y = constrain(e.y + e.vy * dt, 0.02, 0.98);
-      e.vx *= 0.92;
-      e.vy *= 0.92;
-      if (e.state === "destroyed") e.fade = max(0.35, e.fade - dt * 0.5);
+    // drift after hit
+    if (e.hit) {
+      e.x = constrain(e.x + e.vx * 0.02, 0.05, 0.95);
+      e.y = constrain(e.y + e.vy * 0.02, 0.05, 0.95);
+      e.vx *= 0.94;
+      e.vy *= 0.94;
+      e.fade = max(0.35, e.fade - 0.003);
     }
   }
 }
@@ -779,29 +583,20 @@ function drawMiniMap(v) {
   const mx = v.x + v.w - mw - 12;
   const my = height - mh - 12;
 
-  noStroke();
   fill(0, 175);
   rect(mx, my, mw, mh, 14);
 
   fill(235);
   textAlign(LEFT, CENTER);
   textSize(12);
-  text("Mini map", mx + 12, my + 18);
+  text("Mini-map", mx + 12, my + 18);
 
   const ix = mx + 12, iy = my + 30, iw = mw - 24, ih = mh - 42;
 
   fill(18);
   rect(ix, iy, iw, ih, 10);
 
-  // roads
-  stroke(150, 140);
-  strokeWeight(2);
-  for (const r of city.roads) {
-    line(ix + r.x1 * iw, iy + r.y1 * ih, ix + r.x2 * iw, iy + r.y2 * ih);
-  }
-  noStroke();
-
-  // trail
+  // track
   if (track.length > 1) {
     stroke(255, 70);
     strokeWeight(6);
@@ -824,64 +619,83 @@ function drawMiniMap(v) {
   for (const e of entities) {
     push();
     translate(ix + e.x * iw, iy + e.y * ih);
-    rotate(e.rot || 0);
+    rotate(e.rot);
     if (e.flip) scale(1, -1);
-    fill(255, 255 * (e.fade ?? 1));
+    fill(255, 255 * e.fade);
     text(e.char, 0, 0);
     pop();
   }
 
-  // tornado marker
+  // tornado dot
   fill(255);
   circle(ix + storm.mx * iw, iy + storm.my * ih, 10);
 }
 
 // =====================================================
-// RAIN
+// Rain
 // =====================================================
 function initRain() {
   rain = [];
   for (let i = 0; i < MAX_RAIN; i++) rain.push(makeDrop());
 }
+
 function makeDrop() {
-  return { x: random(width), y: random(height), vy: random(700, 1100), len: random(8, 16), drift: random(-40, 40) };
+  return {
+    x: random(width),
+    y: random(height),
+    vy: random(650, 1050),
+    len: random(8, 16),
+    drift: random(-40, 40)
+  };
 }
+
 function updateRain(v) {
   if (!storm.rainOn) return;
   const dt = deltaTime / 1000;
+
   for (const d of rain) {
     d.x += d.drift * dt;
     d.y += d.vy * dt;
-    if (d.y > height + 20) { d.y = -20; d.x = random(v.x, v.x + v.w); }
-    if (d.x < v.x - 50) d.x = v.x + v.w + 50;
-    if (d.x > v.x + v.w + 50) d.x = v.x - 50;
+
+    if (d.y > height + 20) {
+      d.y = -20;
+      d.x = random(v.x, v.x + v.w);
+    }
+    if (d.x < v.x - 60) d.x = v.x + v.w + 60;
+    if (d.x > v.x + v.w + 60) d.x = v.x - 60;
   }
 }
+
 function drawRain(v) {
   if (!storm.rainOn) return;
   stroke(200, 60);
   strokeWeight(1);
   for (const d of rain) {
-    if (d.x < v.x) continue;
+    if (d.x < v.x) continue; // keep rain out of UI panel
     line(d.x, d.y, d.x + 2, d.y + d.len);
   }
   noStroke();
 }
 
 // =====================================================
-// LIGHTNING
+// Lightning
 // =====================================================
 function updateLightning(v) {
   if (!storm.lightningOn) return;
-  if (random() < 0.012 && bolts.length < MAX_BOLTS) bolts.push(makeBolt(v));
+
+  // random lightning
+  if (random() < 0.012 && bolts.length < 3) bolts.push(makeBolt(v));
+
   const dt = deltaTime / 1000;
   for (const b of bolts) b.ttl -= dt;
-  bolts = bolts.filter(b => b.ttl > 0);
+  bolts = bolts.filter((b) => b.ttl > 0);
 }
+
 function makeBolt(v) {
-  const x0 = random(v.x + 30, v.x + v.w - 30);
+  const x0 = random(v.x + 40, v.x + v.w - 40);
   const y0 = 10;
   const y1 = random(height * 0.35, height * 0.75);
+
   const pts = [];
   let x = x0, y = y0;
   for (let i = 0; i < 14; i++) {
@@ -891,13 +705,15 @@ function makeBolt(v) {
   }
   return { pts, ttl: 0.18 };
 }
+
 function drawLightning(v) {
   if (!storm.lightningOn) return;
+
   if (bolts.length > 0) {
-    noStroke();
     fill(255, 35);
     rect(v.x, 0, v.w, height);
   }
+
   stroke(255, 200);
   strokeWeight(2);
   for (const b of bolts) {
@@ -909,7 +725,7 @@ function drawLightning(v) {
 }
 
 // =====================================================
-// HUD — shows “how much of it” like you asked
+// HUD + Science Fair explanation
 // =====================================================
 function drawHUD(v) {
   fill(255);
@@ -918,40 +734,60 @@ function drawHUD(v) {
 
   const ageS = (millis() - storm.bornMs) / 1000;
   const rp = ropeProgress();
-  const alpha = dissipateAlpha();
+  const a = goneAlpha();
 
-  // progress text (clear)
-  text(`Age: ${ageS.toFixed(1)}s`, v.x + 16, 16);
+  text(`Stage: ${storm.stage}`, v.x + 16, 16);
+  text(`EF: ${storm.ef} | Type: ${storm.type} | Damage: ${storm.damage.toFixed(0)}`, v.x + 16, 34);
 
-  // life progress bar
-  drawBar(v.x + 16, 34, 260, 10, constrain(ageS / max(1, storm.lifeS), 0, 1), "Life");
-
-  // rope progress bar
-  drawBar(v.x + 16, 52, 260, 10, rp, "Rope-out");
-
-  // dissipate bar
-  const diss = (storm.phase === "dissipated") ? (1 - alpha) : 0;
-  drawBar(v.x + 16, 70, 260, 10, diss, "Dissipate");
-
-  const rotTxt = (storm.spinDir === -1) ? "Anti-cyclonic" : "Cyclonic";
-  text(`${storm.type} | ${rotTxt} | Phase: ${storm.phase}`, v.x + 16, 90);
+  // tiny progress bar for rope-out only
+  if (storm.stage === "Rope-out") {
+    drawBar(v.x + 16, 54, 220, 9, rp, `Rope-out ${(rp * 100).toFixed(0)}%`);
+  }
+  if (storm.gone && a > 0) {
+    drawBar(v.x + 16, 54, 220, 9, 1 - a, `Fading out`);
+  }
 }
 
-function drawBar(x, y, w, h, p, label) {
-  noStroke();
+function drawBar(x, y, w, h, p, labelText) {
   fill(255, 40);
   rect(x, y, w, h, 6);
-  fill(255, 160);
-  rect(x, y, w * p, h, 6);
+  fill(255, 170);
+  rect(x, y, w * constrain(p, 0, 1), h, 6);
   fill(255);
   textSize(11);
-  text(`${label}: ${(p * 100).toFixed(0)}%`, x + w + 8, y - 2);
+  text(labelText, x + w + 10, y - 2);
 }
 
-// =====================================================
-// HELPERS
-// =====================================================
+function drawScienceFairBox(v) {
+  // simple, clean explanation panel in the main view
+  const bx = v.x + 14;
+  const by = height - 170;
+  const bw = min(520, v.w - 28);
+  const bh = 150;
+
+  fill(0, 165);
+  rect(bx, by, bw, bh, 14);
+
+  fill(255);
+  textAlign(LEFT, TOP);
+  textSize(12);
+
+  const lines = [
+    "Science fair note (simple):",
+    "• Tornado stage changes over time: Forming → Mature → Rope-out → Gone.",
+    "• 'EF scale' controls how intense the damage zone is on the mini-map.",
+    "• Rope-out happens when the vortex thins into a narrow tube and dissipates.",
+    "• The radar shows the tornado position + recent damage blips.",
+    "• Rain and lightning are visual effects from the storm environment."
+  ];
+
+  let y = by + 12;
+  for (const line of lines) {
+    text(line, bx + 14, y);
+    y += 20;
+  }
+}
+
 function smoothstep(a, b, x) {
   x = constrain((x - a) / (b - a), 0, 1);
   return x * x * (3 - 2 * x);
-}

@@ -210,7 +210,7 @@ function applyUI() {
   storm.ef = ui.ef.value();
   storm.type = ui.type.value(); // "Cone" "Wedge" "Rope"
   storm.basePct = ui.baseSize.value(); // 0..100
-  storm.topPct = ui.topSize.value(); // 0..100
+  storm.topPct = ui.topSize.value();   // 0..100
   storm.rainOn = ui.rainOn.checked();
   storm.lightningOn = ui.lightningOn.checked();
 }
@@ -261,8 +261,8 @@ function newStorm(resetCity) {
 
     // timings (simple + stable)
     formingS: 3.0,
-    matureS: 12.0, // after forming, stay mature this long
-    ropeOutS: 10.0, // rope-out duration
+    matureS: 12.0,      // after forming, stay mature this long
+    ropeOutS: 10.0,     // rope-out duration
     gone: false,
 
     ropeStartMs: 0,
@@ -737,7 +737,7 @@ function drawHUD(v) {
   const a = goneAlpha();
 
   text(`Stage: ${storm.stage}`, v.x + 16, 16);
-  text(`EF: ${storm.ef} | Type: ${storm.type} | Damage: ${storm.damage.toFixed(0)}`, v.x + 16, 34);
+  text(`EF: ${storm.ef}  |  Type: ${storm.type}  |  Damage: ${storm.damage.toFixed(0)}`, v.x + 16, 34);
 
   // tiny progress bar for rope-out only
   if (storm.stage === "Rope-out") {
@@ -791,3 +791,4 @@ function drawScienceFairBox(v) {
 function smoothstep(a, b, x) {
   x = constrain((x - a) / (b - a), 0, 1);
   return x * x * (3 - 2 * x);
+  }

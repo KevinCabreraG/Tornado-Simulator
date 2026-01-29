@@ -1,11 +1,12 @@
 // =====================================================
-// Tornado Sim — SIMPLE + CLEAN (requested fixes)
+// Tornado Sim — SIMPLE + FIXED (KEEP + WEDGE + ROPEOUT + BAR)
 // - Radar + Mini-map + GRID
 // - EF scale + Reset Damage
-// - 3 types: Cone / Wedge / Rope (with short descriptions)
+// - 3 types: Cone / Wedge / Rope + short descriptions
 // - Stages: Forming -> Mature -> Rope-out -> Gone
-// - Rope-out: ONLY shrinks then fades (no getting bigger)
-// - Keep tornado (don't disappear) + Pause stage (hold Mature/Rope-out)
+// - Rope-out: shrink ONLY -> then fade -> Gone (no reset)
+// - Keep tornado: FREEZES stage + tornado (works in Mature and Rope-out)
+// - Pause stage: also freezes stage (extra control)
 // - Anti-cyclonic toggle (spin flips)
 // - Base/Top size sliders 0-100
 // - Tornado reaches the ground
@@ -29,13 +30,10 @@ function setup() {
   textFont("system-ui, sans-serif");
   noStroke();
 
-  // Chromebook fix: arrow keys shouldn't scroll the page
   window.addEventListener(
     "keydown",
     (e) => {
-      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) {
-        e.preventDefault();
-      }
+      if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) e.preventDefault();
     },
     { passive: false }
   );
@@ -96,7 +94,7 @@ function buildUI() {
   ui.panel.style("color", "#eee");
   ui.panel.style("box-sizing", "border-box");
 
-  title("🌪️ Tornado Sim (Simple)");
+  title("🌪️ Tornado Sim");
 
   ui.btnNew = button("🌩️ New Storm", () => newStorm(true));
   ui.btnResetDamage = button("🧹 Reset Damage", () => resetDamage());
@@ -118,13 +116,13 @@ function buildUI() {
   hr();
 
   ui.baseSize = sliderLine("Base size (0–100)", 0, 100, 55, 1);
-  ui.topSize = sliderLine("Top size (0–100)", 0, 100, 70, 1);
+  ui.topSize  = sliderLine("Top size (0–100)", 0, 100, 70, 1);
 
   hr();
 
-  ui.keepTornado = checkbox("✅ Keep tornado (don’t disappear)", false);
-  ui.pauseStage = checkbox("⏸️ Pause stage (hold current stage)", false);
-  ui.anti = checkbox("↩️ Anti-cyclonic (spin flips)", false);
+  ui.keepTornado = checkbox("✅ Keep tornado (FREEZE + never disappear)", false);
+  ui.pauseStage  = checkbox("⏸️ Pause stage (FREEZE timing)", false);
+  ui.anti        = checkbox("↩️ Anti-cyclonic (spin flips)", false);
 
   hr();
 
@@ -132,10 +130,8 @@ function buildUI() {
   ui.lightningOn = checkbox("⚡ Lightning", true);
 
   hr();
+  small("Arrow keys steer tornado on the mini-map.", 12);
 
-  small("Controls: Arrow keys steer tornado on the mini-map.", 12);
-
-  // ---------- UI helpers ----------
   function title(t) {
     const d = createDiv(t);
     d.parent(ui.panel);
@@ -221,24 +217,22 @@ function buildUI() {
 
 function applyUI() {
   storm.ef = ui.ef.value();
-  storm.type = ui.type.value(); // "Cone" "Wedge" "Rope"
+  storm.type = ui.type.value();
   storm.basePct = ui.baseSize.value();
-  storm.topPct = ui.topSize.value();
-
+  storm.topPct  = ui.topSize.value();
   storm.keepTornado = ui.keepTornado.checked();
-  storm.pauseStage = ui.pauseStage.checked();
+  storm.pauseStage  = ui.pauseStage.checked();
   storm.anti = ui.anti.checked();
-
   storm.rainOn = ui.rainOn.checked();
   storm.lightningOn = ui.lightningOn.checked();
 
-  // short type descriptions
-  const desc = {
-    "Cone": "Cone: classic funnel—wide aloft, tighter near the ground.",
-    "Wedge": "Wedge: very wide, lower-looking tornado (wider than tall).",
-    "Rope": "Rope: thin, twisted tube—often near the end of a tornado."
-  }[storm.type] || "";
-  ui.typeDesc.html(desc);
+  ui.typeDesc.html(
+    storm.type === "Cone"
+      ? "Cone: classic funnel—wide aloft, tighter near the ground."
+      : storm.type === "Wedge"
+        ? "Wedge: very wide, lower-looking tornado (wider than tall)."
+        : "Rope: thin, twisted tube—often near the end (rope-out look)."
+  );
 }
 
 // =====================================================
@@ -246,7 +240,6 @@ function applyUI() {
 // =====================================================
 function drawScene(v) {
   background(14);
-
   fill(18);
   rect(v.x, 0, v.w, v.h);
 
@@ -271,26 +264,21 @@ function drawScene(v) {
 }
 
 // =====================================================
-// Storm logic (stages + pause + keep tornado)
+// Storm state machine (FIXED timing)
 // =====================================================
 function newStorm(resetCity) {
   storm = {
     mx: 0.50,
     my: 0.55,
 
-    bornMs: millis(),
-
-    // stages
-    stage: "Forming", // Forming -> Mature -> Rope-out -> Gone
+    stage: "Forming",        // Forming -> Mature -> Rope-out -> Gone
+    stageElapsed: 0,         // seconds elapsed in current stage
     formingS: 3.0,
     matureS: 12.0,
     ropeOutS: 10.0,
-
-    ropeStartMs: 0,
     gone: false,
-    goneStartMs: 0,
+    goneElapsed: 0,          // seconds since Gone
 
-    // UI
     ef: "EF3",
     type: "Cone",
     basePct: 55,
@@ -311,28 +299,10 @@ function newStorm(resetCity) {
   if (resetCity) buildCity();
 }
 
-function stageTimeS() {
-  // if paused, freeze stage timing by "pretending time stopped"
-  // We do that by tracking paused duration.
-  if (!storm._pause) storm._pause = { on: false, startMs: 0, totalMs: 0 };
-
-  if (storm.pauseStage && !storm._pause.on) {
-    storm._pause.on = true;
-    storm._pause.startMs = millis();
-  }
-  if (!storm.pauseStage && storm._pause.on) {
-    storm._pause.on = false;
-    storm._pause.totalMs += (millis() - storm._pause.startMs);
-  }
-
-  const pausedMs = storm._pause.totalMs + (storm._pause.on ? (millis() - storm._pause.startMs) : 0);
-  return ((millis() - storm.bornMs - pausedMs) / 1000);
-}
-
 function updateStorm() {
-  // even if Gone, keep radar sweep moving a bit (feels alive)
   const dt = deltaTime / 1000;
 
+  // radar sweep always moves
   radar.sweep += dt * 1.25;
   if (radar.sweep > TWO_PI) radar.sweep -= TWO_PI;
 
@@ -340,67 +310,61 @@ function updateStorm() {
   for (const b of radar.blips) b.ttl -= dt;
   radar.blips = radar.blips.filter((b) => b.ttl > 0);
 
-  if (storm.gone) return;
-
-  // movement
+  // movement (even if frozen, you can still steer)
   const speed = 0.26 * dt;
   if (keyIsDown(LEFT_ARROW)) storm.mx -= speed;
   if (keyIsDown(RIGHT_ARROW)) storm.mx += speed;
   if (keyIsDown(UP_ARROW)) storm.my -= speed;
   if (keyIsDown(DOWN_ARROW)) storm.my += speed;
-
   storm.mx = constrain(storm.mx, 0.03, 0.97);
   storm.my = constrain(storm.my, 0.03, 0.97);
 
   track.push({ mx: storm.mx, my: storm.my });
   if (track.length > MAX_TRACK) track.shift();
 
-  // stage timing (paused-aware)
-  const tS = stageTimeS();
-
-  if (tS < storm.formingS) {
-    storm.stage = "Forming";
+  // If already Gone, just count fade time
+  if (storm.gone) {
+    storm.goneElapsed += dt;
     return;
   }
 
-  const afterForm = tS - storm.formingS;
+  // FREEZE conditions:
+  // - Keep tornado: freeze stage timing (Forming/Mature/Rope-out) AND never disappear
+  // - Pause stage: freeze stage timing
+  const frozen = storm.keepTornado || storm.pauseStage;
 
-  if (afterForm < storm.matureS) {
-    storm.stage = "Mature";
-    return;
-  }
+  if (!frozen) storm.stageElapsed += dt;
 
-  // Rope-out start
-  if (storm.stage !== "Rope-out") {
-    storm.stage = "Rope-out";
-    storm.ropeStartMs = millis();
-  }
-
-  // If Keep tornado is ON, stop at rope-out and never go gone.
-  if (storm.keepTornado) return;
-
-  // Rope-out finishes -> Gone (then fades out)
-  if (ropeProgress() >= 1) {
-    storm.stage = "Gone";
-    storm.gone = true;
-    storm.goneStartMs = millis();
+  // Stage transitions (ONLY when not frozen)
+  if (!frozen) {
+    if (storm.stage === "Forming" && storm.stageElapsed >= storm.formingS) {
+      storm.stage = "Mature";
+      storm.stageElapsed = 0;
+    } else if (storm.stage === "Mature" && storm.stageElapsed >= storm.matureS) {
+      storm.stage = "Rope-out";
+      storm.stageElapsed = 0;
+    } else if (storm.stage === "Rope-out" && storm.stageElapsed >= storm.ropeOutS) {
+      // only disappear if keepTornado is OFF (but keepTornado is part of frozen anyway)
+      storm.stage = "Gone";
+      storm.gone = true;
+      storm.goneElapsed = 0;
+    }
   }
 }
 
 function ropeProgress() {
   if (storm.stage !== "Rope-out") return 0;
-  const t = (millis() - storm.ropeStartMs) / 1000;
-  return constrain(t / max(1, storm.ropeOutS), 0, 1);
+  return constrain(storm.stageElapsed / max(0.001, storm.ropeOutS), 0, 1);
 }
 
 function goneAlpha() {
+  // Fade out for 1.5s after Gone
   if (!storm.gone) return 1;
-  const t = (millis() - storm.goneStartMs) / 1000;
-  return 1 - constrain(t / 1.5, 0, 1);
+  return 1 - constrain(storm.goneElapsed / 1.5, 0, 1);
 }
 
 // =====================================================
-// Tornado drawing (wedge really different, rope-out monotonic shrink)
+// Tornado drawing (WEDGE FIXED + ROPEOUT FIXED)
 // =====================================================
 function drawTornado(v) {
   const aGone = goneAlpha();
@@ -410,27 +374,27 @@ function drawTornado(v) {
   const groundY = v.h * 0.78;
   const cx = v.x + storm.mx * v.w;
 
-  const tS = stageTimeS();
-  const formP = constrain(tS / storm.formingS, 0, 1);
-
-  // always reaches ground, but forming "reaches down" over time
   const yTop = cloudY;
-  const yBot = groundY;
-  const reachY = lerp(yTop + 20, yBot, smoothstep(0, 1, formP));
+  const yBot = groundY; // always reaches ground
 
-  // map base/top 0..100 -> pixels
+  // forming reach-down
+  const formingP = (storm.stage === "Forming")
+    ? constrain(storm.stageElapsed / storm.formingS, 0, 1)
+    : 1;
+
+  const reachY = lerp(yTop + 20, yBot, smoothstep(0, 1, formingP));
+
+  // sizes
   const efMul = map(efStrength(storm.ef), 0, 5, 0.85, 1.25);
-
   let baseW = map(storm.basePct, 0, 100, 20, 320) * efMul;
-  let topW = map(storm.topPct, 0, 100, 60, 520) * efMul;
+  let topW  = map(storm.topPct,  0, 100, 60, 520) * efMul;
 
-  // type-specific shape tuning
+  // Type shaping
   if (storm.type === "Wedge") {
-    // Wedge: wide and "lower" looking (wider than tall)
-    topW = max(topW, baseW * 1.7);
-    baseW = max(baseW, topW * 0.45);
-  }
-  if (storm.type === "Rope") {
+    // Make it VERY wedge-y: huge top, big base, and thick for most of the height
+    topW  = max(topW, baseW * 2.0);
+    baseW = max(baseW, topW * 0.52);
+  } else if (storm.type === "Rope") {
     topW *= 0.55;
     baseW *= 0.35;
   }
@@ -438,24 +402,26 @@ function drawTornado(v) {
   // Anti-cyclonic flips spin direction
   const dir = storm.anti ? -1 : 1;
 
-  // Rope-out: ONLY shrink then fade (no whip bulge)
+  // Rope-out: monotonic shrink ONLY
   const rp = ropeProgress();
   const shrink = (storm.stage === "Rope-out")
-    ? (1.0 - 0.88 * smoothstep(0.0, 1.0, rp)) // monotonic decrease
+    ? (1.0 - 0.90 * smoothstep(0, 1, rp)) // 1 -> 0.10, never increases
     : 1.0;
 
   topW *= shrink;
   baseW *= shrink;
 
-  // fade during rope-out a bit + gone fade
-  const ropeFade = (storm.stage === "Rope-out") ? (1.0 - 0.55 * rp) : 1.0;
+  // Rope-out fades while shrinking (and Gone fades more)
+  const ropeFade = (storm.stage === "Rope-out")
+    ? (1.0 - 0.55 * rp)
+    : 1.0;
+
   const opacity = 175 * ropeFade * aGone;
 
   // debris ring
   fill(140, 70 * ropeFade * aGone);
   ellipse(cx, yBot + 18, baseW * 1.8, baseW * 0.45);
 
-  // funnel
   const steps = 150;
   const tt = frameCount * 0.06;
 
@@ -467,10 +433,13 @@ function drawTornado(v) {
     if (storm.type === "Cone") {
       w = lerp(topW, baseW, pow(p, 0.95));
     } else if (storm.type === "Wedge") {
-      // wedge stays fat longer then narrows late
-      w = lerp(topW, baseW, pow(p, 0.45));
+      // Wedge profile: stay thick until near the bottom, then taper
+      // This is what makes it look different from cone.
+      const thick = 1 - smoothstep(0.70, 1.0, p); // ~1 until 0.7 then drops
+      w = lerp(baseW, topW, 1 - p);               // wide at top
+      w = max(w, baseW * (0.85 + 0.25 * thick));  // keep it fat
     } else {
-      // rope is thin overall
+      // Rope
       w = lerp(topW * 0.35, baseW * 0.25, pow(p, 1.25));
     }
 
@@ -481,7 +450,7 @@ function drawTornado(v) {
     fill(230, a);
     ellipse(cx + spin, y, w, 12);
 
-    // band line for spin definition
+    // band line for spin clarity
     stroke(40, a * 0.55);
     strokeWeight(max(1.0, w * 0.012));
     const k = 0.22 + 0.14 * (1 - p);
@@ -545,30 +514,18 @@ function drawRadar(v) {
 }
 
 // =====================================================
-// Mini-map with GRID
+// Mini-map (GRID) + damage emojis
 // =====================================================
 function buildCity() {
   entities = [];
   track = [];
-
   for (let i = 0; i < 8; i++) entities.push(makeEnt("🏢", "building"));
   for (let i = 0; i < 8; i++) entities.push(makeEnt("🌳", "tree"));
   for (let i = 0; i < 6; i++) entities.push(makeEnt("🚗", "car"));
 }
 
 function makeEnt(kindChar, kind) {
-  return {
-    char: kindChar,
-    kind,
-    x: random(0.12, 0.88),
-    y: random(0.12, 0.88),
-    hit: false,
-    rot: 0,
-    flip: false,
-    vx: 0,
-    vy: 0,
-    fade: 1
-  };
+  return { char: kindChar, kind, x: random(0.12, 0.88), y: random(0.12, 0.88), hit: false, rot: 0, flip: false, vx: 0, vy: 0, fade: 1 };
 }
 
 function resetDamage() {
@@ -593,7 +550,6 @@ function updateEntities() {
   for (const e of entities) {
     if (!e.hit && dist(storm.mx, storm.my, e.x, e.y) < r) {
       e.hit = true;
-
       const ang = atan2(e.y - storm.my, e.x - storm.mx);
       const force = (e.kind === "car") ? 0.50 : (e.kind === "tree") ? 0.25 : 0.14;
 
@@ -690,34 +646,20 @@ function initRain() {
   rain = [];
   for (let i = 0; i < MAX_RAIN; i++) rain.push(makeDrop());
 }
-
 function makeDrop() {
-  return {
-    x: random(width),
-    y: random(height),
-    vy: random(650, 1050),
-    len: random(8, 16),
-    drift: random(-40, 40)
-  };
+  return { x: random(width), y: random(height), vy: random(650, 1050), len: random(8, 16), drift: random(-40, 40) };
 }
-
 function updateRain(v) {
   if (!storm.rainOn) return;
   const dt = deltaTime / 1000;
-
   for (const d of rain) {
     d.x += d.drift * dt;
     d.y += d.vy * dt;
-
-    if (d.y > height + 20) {
-      d.y = -20;
-      d.x = random(v.x, v.x + v.w);
-    }
+    if (d.y > height + 20) { d.y = -20; d.x = random(v.x, v.x + v.w); }
     if (d.x < v.x - 60) d.x = v.x + v.w + 60;
     if (d.x > v.x + v.w + 60) d.x = v.x - 60;
   }
 }
-
 function drawRain(v) {
   if (!storm.rainOn) return;
   stroke(200, 60);
@@ -734,19 +676,15 @@ function drawRain(v) {
 // =====================================================
 function updateLightning(v) {
   if (!storm.lightningOn) return;
-
   if (random() < 0.012 && bolts.length < 3) bolts.push(makeBolt(v));
-
   const dt = deltaTime / 1000;
   for (const b of bolts) b.ttl -= dt;
   bolts = bolts.filter((b) => b.ttl > 0);
 }
-
 function makeBolt(v) {
   const x0 = random(v.x + 40, v.x + v.w - 40);
   const y0 = 10;
   const y1 = random(height * 0.35, height * 0.75);
-
   const pts = [];
   let x = x0, y = y0;
   for (let i = 0; i < 14; i++) {
@@ -756,15 +694,12 @@ function makeBolt(v) {
   }
   return { pts, ttl: 0.18 };
 }
-
 function drawLightning(v) {
   if (!storm.lightningOn) return;
-
   if (bolts.length > 0) {
     fill(255, 35);
     rect(v.x, 0, v.w, height);
   }
-
   stroke(255, 200);
   strokeWeight(2);
   for (const b of bolts) {
@@ -776,69 +711,63 @@ function drawLightning(v) {
 }
 
 // =====================================================
-// HUD: stage bar (3 stages) + labels
+// HUD — FIXED stage bar finishing
 // =====================================================
 function drawHUD(v) {
   fill(255);
   textAlign(LEFT, TOP);
   textSize(13);
 
-  text(`Stage: ${storm.stage}`, v.x + 16, 16);
-  text(`EF: ${storm.ef} | Type: ${storm.type} | Damage: ${storm.damage.toFixed(0)}`, v.x + 16, 34);
+  const stage = storm.stage;
+  text(`Stage: ${stage}`, v.x + 16, 16);
+  text(`EF: ${storm.ef}  |  Type: ${storm.type}  |  Damage: ${storm.damage.toFixed(0)}`, v.x + 16, 34);
 
-  // Stage bar
-  drawStageBar(v.x + 16, 56, 300, 14);
+  drawStageBar(v.x + 16, 56, 320, 14);
 
-  // small rope-out % label if in rope-out
-  if (storm.stage === "Rope-out") {
+  if (stage === "Rope-out") {
     const rp = ropeProgress();
-    fill(255);
     textSize(12);
-    text(`Rope-out: ${(rp * 100).toFixed(0)}%`, v.x + 16, 78);
+    text(`Rope-out: ${(rp * 100).toFixed(0)}%`, v.x + 16, 76);
   }
 }
 
 function drawStageBar(x, y, w, h) {
-  // 3 segments: Forming, Mature, Rope-out
   const segW = w / 3;
 
-  // progress within each stage
-  const tS = stageTimeS();
-  const formingP = constrain(tS / storm.formingS, 0, 1);
-  const afterForm = max(0, tS - storm.formingS);
-  const matureP = constrain(afterForm / storm.matureS, 0, 1);
-  const ropeP = ropeProgress();
+  // compute per-stage progress
+  const pForm = (storm.stage === "Forming")
+    ? constrain(storm.stageElapsed / storm.formingS, 0, 1)
+    : (storm.stage === "Mature" || storm.stage === "Rope-out" || storm.stage === "Gone") ? 1 : 0;
+
+  const pMat = (storm.stage === "Mature")
+    ? constrain(storm.stageElapsed / storm.matureS, 0, 1)
+    : (storm.stage === "Rope-out" || storm.stage === "Gone") ? 1 : 0;
+
+  const pRope = (storm.stage === "Rope-out")
+    ? constrain(storm.stageElapsed / storm.ropeOutS, 0, 1)
+    : (storm.stage === "Gone") ? 1 : 0;
 
   // background
   noStroke();
   fill(255, 30);
   rect(x, y, w, h, 7);
 
-  // fill progress based on stage
-  // Forming fill
-  fill(255, 140);
-  rect(x, y, segW * formingP, h, 7);
-
-  // Mature fill
-  const mStart = x + segW;
-  fill(255, 140);
-  rect(mStart, y, segW * (storm.stage === "Forming" ? 0 : matureP), h, 7);
-
-  // Rope-out fill
-  const rStart = x + segW * 2;
-  fill(255, 140);
-  rect(rStart, y, segW * (storm.stage === "Rope-out" || storm.stage === "Gone" ? ropeP : 0), h, 7);
+  // fills
+  fill(255, 150);
+  rect(x, y, segW * pForm, h, 7);
+  rect(x + segW, y, segW * pMat, h, 7);
+  rect(x + segW * 2, y, segW * pRope, h, 7);
 
   // labels
   fill(255);
   textSize(10);
   textAlign(CENTER, CENTER);
   text("Forming", x + segW * 0.5, y + h / 2);
-  text("Mature", x + segW * 1.5, y + h / 2);
+  text("Mature",  x + segW * 1.5, y + h / 2);
   text("Rope-out",x + segW * 2.5, y + h / 2);
   textAlign(LEFT, TOP);
 
-  // highlight current segment with outline
+  // stage outline
   stroke(255, 120);
   strokeWeight(2);
   noFill();
@@ -848,7 +777,7 @@ function drawStageBar(x, y, w, h) {
 }
 
 // =====================================================
-// Science fair box (short + sweet)
+// Science fair box
 // =====================================================
 function drawScienceFairBox(v) {
   const bx = v.x + 14;
@@ -866,9 +795,9 @@ function drawScienceFairBox(v) {
   const lines = [
     "Quick science note:",
     "• Forming: a small funnel grows downward from the cloud base.",
-    "• Mature: strongest, widest stage (most damage potential).",
-    "• Rope-out: vortex thins into a narrow tube and fades away.",
-    "• Radar shows the tornado’s position + recent hit ‘blips’."
+    "• Mature: strongest/widest stage (most damage potential).",
+    "• Rope-out: vortex tightens into a thin tube and dissipates.",
+    "• Radar shows tornado position + recent hit ‘blips’."
   ];
 
   let yy = by + 12;
@@ -878,6 +807,9 @@ function drawScienceFairBox(v) {
   }
 }
 
+// =====================================================
+// Helpers
+// =====================================================
 function smoothstep(a, b, x) {
   x = constrain((x - a) / (b - a), 0, 1);
   return x * x * (3 - 2 * x);

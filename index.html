@@ -7,8 +7,6 @@
   <style>
     :root{
       --bg:#0b1020;
-      --panel:#111a33;
-      --panel2:#0f1730;
       --txt:#e9eeff;
       --muted:#9fb0ff;
       --accent:#76d6ff;
@@ -90,9 +88,7 @@
       font-size:13px;
     }
     label{ color:var(--muted); font-weight:650; }
-    select, input[type="range"]{
-      accent-color: var(--accent);
-    }
+    select, input[type="range"]{ accent-color: var(--accent); }
 
     .stage{
       position:relative;
@@ -121,11 +117,13 @@
       line-height:1.25;
     }
 
+    /* ✅ FIXED: right column panels always have real height */
     .right{
       display:grid;
-      grid-template-rows: auto 1fr 1fr;
+      grid-template-rows: 1fr 1fr 1fr; /* equal heights so mini-map can't collapse */
       gap:12px;
       min-width:0;
+      height: 100%;
     }
     .panel{
       background: rgba(0,0,0,0.20);
@@ -147,6 +145,7 @@
     .panelBody{
       padding:10px;
       height: calc(100% - 44px);
+      min-height: 220px; /* ensures canvases stay visible */
     }
     .panelBody .canvasBox{
       height:100%;
@@ -237,9 +236,8 @@
           <div class="hint" id="statusLine2"></div>
           <div class="hint" id="statusLine3"></div>
           <div class="hint" style="opacity:.9;">
-            What’s implemented:
+            Implemented:
             <b>trail</b>, <b>rope-out vanish</b>, <b>object push</b>, <b>cars move</b>, <b>radar blips</b>.
-            You can expand it later with debris, sirens, damage states, etc.
           </div>
         </div>
       </div>
@@ -304,18 +302,17 @@
     keepTornado: true,
     type: 'cone',
     ef: 2,
-    active: true,          // tornado exists
-    ropingOut: false,      // currently shrinking to rope + vanishing
-    vanishT: 0,            // 0..1
-    lightningFlash: 0,     // 0..1 for screen flash
+    active: true,
+    ropingOut: false,
+    vanishT: 0,
+    lightningFlash: 0,
   };
 
   const tornado = {
     x: 0, y: 0,
     vx: 0, vy: 0,
-    speed: 2.6,       // main sim movement
-    heading: 0,
-    trail: [],        // for white trail
+    speed: 2.6,
+    trail: [], // {x,y,wx,wy}
   };
 
   // ---------- Mini map world ----------
@@ -325,7 +322,7 @@
     grid: 40,
     objects: [],
     cars: [],
-    blips: [], // radar blips: {x,y,t}
+    blips: [],
   };
 
   function buildWorld() {
@@ -333,24 +330,19 @@
     world.cars.length = 0;
     world.blips.length = 0;
 
-    // Houses (stronger "mass"), Trees (lighter)
     const mkObj = (kind, x, y) => ({
       kind, x, y,
-      baseX: x, baseY: y,
       vx: 0, vy: 0,
-      moved: 0,   // how much it's been displaced total
+      moved: 0,
     });
 
-    // Place some houses
     for (let i=0;i<14;i++){
       world.objects.push(mkObj('house', rand(60, world.w-60), rand(60, world.h-60)));
     }
-    // Place some trees
     for (let i=0;i<22;i++){
       world.objects.push(mkObj('tree', rand(30, world.w-30), rand(30, world.h-30)));
     }
 
-    // Moving cars on simple loop paths
     for (let i=0;i<8;i++){
       const laneY = choose([120, 200, 280, 360, 440]);
       world.cars.push({
@@ -363,8 +355,7 @@
 
   // ---------- Particles ----------
   const rainDrops = [];
-  function spawnRain(count=6) {
-    // raindrops only in main sim canvas space
+  function spawnRain(count=10) {
     const w = sim.getBoundingClientRect().width;
     const h = sim.getBoundingClientRect().height;
     for (let i=0;i<count;i++){
@@ -378,42 +369,35 @@
     }
   }
 
-  // ---------- Mapping between sim and minimap ----------
-  function simToMini(x, y) {
-    // We treat the sim canvas as a "camera" over the world.
-    // Tornado's position is in world coords; sim draws centered on tornado.
-    return { x, y };
+  // ---------- EF scaling ----------
+  function efToRadius(ef) { return 16 + ef * 14; }
+  function efToPush(ef) { return (ef/5) ** 1.2; }
+
+  function currentMiniRadius() {
+    let r = efToRadius(storm.ef);
+    if (storm.ropingOut){
+      const shrink = 1 - 0.82 * storm.vanishT;
+      r *= shrink;
+      r = Math.max(8, r);
+    }
+    if (!storm.active) r = 0;
+    return r;
   }
 
-  // EF => mini-map radius
-  function efToRadius(ef) {
-    // not real sizes; just a nice visual scaling
-    return 16 + ef * 14; // EF0 ~16px, EF5 ~86px
-  }
-
-  // EF => push strength
-  function efToPush(ef) {
-    // EF0 none; EF5 huge
-    return (ef/5) ** 1.2; // 0..1
-  }
-
-  // ---------- Damage / interaction ----------
+  // ---------- Radar blips ----------
   function addRadarBlip(x, y) {
     world.blips.push({ x, y, t: 1.0 });
   }
 
-  function objectMass(kind){
-    return kind === 'house' ? 1.8 : 0.85; // houses resist more than trees
-  }
+  // ---------- Object physics ----------
+  function objectMass(kind){ return kind === 'house' ? 1.8 : 0.85; }
 
   function updateObjectPhysics(dt) {
-    // frictiony motion after being pushed
     for (const o of world.objects){
       o.vx *= 0.90;
       o.vy *= 0.90;
       o.x += o.vx * dt;
       o.y += o.vy * dt;
-      // keep in bounds
       o.x = clamp(o.x, 12, world.w-12);
       o.y = clamp(o.y, 12, world.h-12);
     }
@@ -433,27 +417,20 @@
     for (const o of world.objects){
       const d2 = dist2(tx, ty, o.x, o.y);
       if (d2 <= R2){
-        // inside radius: push away + a little swirl
         const d = Math.sqrt(d2) + 0.0001;
         const nx = (o.x - tx) / d;
         const ny = (o.y - ty) / d;
 
-        // swirl component
         const sx = -ny;
         const sy = nx;
 
         const mass = objectMass(o.kind);
-        const falloff = 1 - (d / R); // 1 near center -> 0 edge
-
-        // EF scale effect: EF0 no movement; EF5 a lot
+        const falloff = 1 - (d / R);
         const impulse = (260 * strength * falloff / mass) * dt;
 
         o.vx += (nx * impulse) + (sx * impulse * 0.35);
         o.vy += (ny * impulse) + (sy * impulse * 0.35);
 
-        o.moved += impulse * 0.02;
-
-        // radar hit blip (cooldown-ish: only sometimes)
         if (Math.random() < 0.15 * dt) addRadarBlip(o.x, o.y);
       }
     }
@@ -466,7 +443,6 @@
       if (c.x < -20) c.x = world.w + 20;
       if (c.x > world.w + 20) c.x = -20;
 
-      // If tornado exists, cars can get shoved a bit if close (fun)
       if (storm.active){
         const R = currentMiniRadius() * 0.75;
         const d2 = dist2(tornado.x, tornado.y, c.x, c.y);
@@ -480,25 +456,11 @@
           if (Math.random() < 0.08 * dt) addRadarBlip(c.x, c.y);
         }
       }
-
       c.y = clamp(c.y, 20, world.h-20);
     }
   }
 
   // ---------- Tornado life-cycle ----------
-  function currentMiniRadius() {
-    // when roping out, radius shrinks toward a rope then disappears
-    let r = efToRadius(storm.ef);
-    if (storm.ropingOut){
-      // vanishT goes 0..1 ; radius shrinks to 20% then fades out
-      const shrink = 1 - 0.82 * storm.vanishT;
-      r *= shrink;
-      r = Math.max(8, r);
-    }
-    if (!storm.active) r = 0;
-    return r;
-  }
-
   function startRopeOut() {
     if (!storm.active) return;
     storm.ropingOut = true;
@@ -529,19 +491,11 @@
 
   // ---------- Input ----------
   const keys = { ArrowUp:false, ArrowDown:false, ArrowLeft:false, ArrowRight:false };
-
   window.addEventListener('keydown', (e) => {
-    if (e.key in keys) {
-      keys[e.key] = true;
-      e.preventDefault();
-    }
+    if (e.key in keys) { keys[e.key] = true; e.preventDefault(); }
   }, { passive:false });
-
   window.addEventListener('keyup', (e) => {
-    if (e.key in keys) {
-      keys[e.key] = false;
-      e.preventDefault();
-    }
+    if (e.key in keys) { keys[e.key] = false; e.preventDefault(); }
   }, { passive:false });
 
   // ---------- UI events ----------
@@ -560,15 +514,8 @@
     miniTag.style.color = storm.active ? "var(--muted)" : "var(--danger)";
   }
 
-  btnRain.addEventListener('click', () => {
-    storm.hasRain = !storm.hasRain;
-    syncUI();
-  });
-
-  btnLightning.addEventListener('click', () => {
-    storm.hasLightning = !storm.hasLightning;
-    syncUI();
-  });
+  btnRain.addEventListener('click', () => { storm.hasRain = !storm.hasRain; syncUI(); });
+  btnLightning.addEventListener('click', () => { storm.hasLightning = !storm.hasLightning; syncUI(); });
 
   btnKeep.addEventListener('click', () => {
     storm.keepTornado = !storm.keepTornado;
@@ -577,7 +524,6 @@
   });
 
   btnRandom.addEventListener('click', () => {
-    // random storm chooses tornado type and rain/lightning
     storm.type = choose(['wedge','cone','rope']);
     storm.hasRain = Math.random() < 0.75;
     storm.hasLightning = Math.random() < 0.6;
@@ -586,11 +532,9 @@
     storm.ropingOut = false;
     storm.vanishT = 0;
 
-    // random EF, slightly biased toward weaker (more realistic-ish)
     const roll = Math.random();
     storm.ef = roll < 0.32 ? 0 : roll < 0.58 ? 1 : roll < 0.76 ? 2 : roll < 0.88 ? 3 : roll < 0.96 ? 4 : 5;
 
-    // new location
     tornado.x = rand(60, world.w-60);
     tornado.y = rand(60, world.h-60);
     tornado.trail.length = 0;
@@ -606,14 +550,12 @@
     syncUI();
   });
 
-  typeSel.addEventListener('change', () => {
-    storm.type = typeSel.value;
-    syncUI();
-  });
+  typeSel.addEventListener('change', () => { storm.type = typeSel.value; syncUI(); });
 
   // ---------- Drawing: main sim ----------
+  let perfT = 0;
+
   function drawSkyBackground(w, h) {
-    // moody sky gradient + low clouds
     const g = ctx.createLinearGradient(0,0,0,h);
     g.addColorStop(0, 'rgba(25, 40, 85, 0.75)');
     g.addColorStop(0.45, 'rgba(13, 20, 45, 0.85)');
@@ -621,7 +563,6 @@
     ctx.fillStyle = g;
     ctx.fillRect(0,0,w,h);
 
-    // subtle cloud bands
     for (let i=0;i<9;i++){
       const y = (h*0.08) + i*(h*0.08) + Math.sin(perfT*0.0007 + i)*8;
       ctx.fillStyle = `rgba(255,255,255,${0.02 + i*0.001})`;
@@ -638,8 +579,6 @@
 
   function drawRain(w, h) {
     if (!storm.hasRain) return;
-
-    // keep enough drops
     if (rainDrops.length < 420) spawnRain(14);
 
     ctx.lineWidth = 1;
@@ -664,12 +603,13 @@
     }
   }
 
+  /* ✅ FIXED: Clearly defined WEDGE / CONE / ROPE shapes */
   function drawTornadoMain(w, h) {
-    // Camera: tornado stays near center of main sim
     const cx = w * 0.5;
-    const cy = h * 0.55;
+    const topY = h * 0.14;
+    const groundY = h * 0.80;
 
-    // White trail behind the tornado
+    // Trail (white)
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     for (let i=0;i<tornado.trail.length;i++){
@@ -686,85 +626,102 @@
 
     if (!storm.active) return;
 
-    // tornado look based on type
-    const baseH = h * 0.72;
-    const topY = h * 0.12;
-    const groundY = h * 0.80;
-
-    // roping out visuals (fade)
     const fade = storm.ropingOut ? (1 - storm.vanishT) : 1;
     ctx.globalAlpha = fade;
 
-    // diameter scale based on EF and type
-    const ef = storm.ef;
-    const efScale = 0.85 + ef * 0.18;
+    const efScale = 0.75 + storm.ef * 0.20;
 
-    let baseW = 190 * efScale;
-    let topW  = 40 * efScale;
-
-    if (storm.type === 'wedge'){
-      baseW *= 1.18;
-      topW  *= 1.05;
-    } else if (storm.type === 'cone'){
-      // default okay
-    } else if (storm.type === 'rope'){
-      baseW *= 0.55;
-      topW  *= 0.35;
+    let topW, baseW;
+    if (storm.type === "wedge") {
+      topW = 120 * efScale;
+      baseW = 320 * efScale;
+    } else if (storm.type === "cone") {
+      topW = 40 * efScale;
+      baseW = 220 * efScale;
+    } else {
+      topW = 18 * efScale;
+      baseW = 45 * efScale;
     }
 
-    // roping out forces it narrower
-    if (storm.ropingOut){
+    if (storm.ropingOut) {
       const t = storm.vanishT;
-      baseW *= (1 - 0.55*t);
-      topW  *= (1 - 0.75*t);
+      baseW *= (1 - 0.70*t);
+      topW  *= (1 - 0.85*t);
+      baseW = Math.max(10, baseW);
+      topW  = Math.max(6, topW);
     }
 
-    // funnel body: stacked ellipses
-    const layers = 44;
-    for (let i=0;i<layers;i++){
-      const t = i/(layers-1);
-      const y = topY + t*(groundY-topY);
-      // width interpolates top->base plus a little wobble
-      const wobble = Math.sin(perfT*0.004 + t*8) * 6;
-      const wLayer = (topW + (baseW-topW)*t) + wobble;
-      const hLayer = 10 + 8*t;
+    const wob = Math.sin(perfT*0.004) * 10;
+    const wob2 = Math.cos(perfT*0.003) * 6;
 
-      ctx.fillStyle = `rgba(225,235,255,${0.018 + t*0.014})`;
-      ctx.beginPath();
-      ctx.ellipse(cx + Math.sin(perfT*0.003 + t*6)*9, y, Math.max(3,wLayer), hLayer, 0, 0, Math.PI*2);
-      ctx.fill();
-    }
+    const bodyGrad = ctx.createLinearGradient(0, topY, 0, groundY);
+    bodyGrad.addColorStop(0, "rgba(240,248,255,0.20)");
+    bodyGrad.addColorStop(0.55, "rgba(230,240,255,0.14)");
+    bodyGrad.addColorStop(1, "rgba(255,255,255,0.10)");
 
-    // debris cloud at ground
-    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    const leftTopX  = cx - topW/2 + wob2;
+    const rightTopX = cx + topW/2 + wob2;
+    const leftBaseX = cx - baseW/2 + wob;
+    const rightBaseX= cx + baseW/2 + wob;
+
+    ctx.fillStyle = bodyGrad;
     ctx.beginPath();
-    ctx.ellipse(cx, groundY+10, baseW*0.85, 30, 0, 0, Math.PI*2);
+    ctx.moveTo(leftTopX, topY);
+    ctx.lineTo(rightTopX, topY);
+    ctx.lineTo(rightBaseX, groundY);
+    ctx.lineTo(leftBaseX, groundY);
+    ctx.closePath();
     ctx.fill();
 
-    // subtle core
-    ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+    ctx.strokeStyle = "rgba(255,255,255,0.30)";
     ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(cx, topY);
-    ctx.lineTo(cx + Math.sin(perfT*0.002)*16, groundY);
     ctx.stroke();
+
+    // Inner shading bands (still readable)
+    ctx.save();
+    ctx.clip();
+    for (let i=0;i<10;i++){
+      const t = i/9;
+      const y = topY + t*(groundY-topY);
+      const wHere = topW + (baseW-topW)*t;
+      const bandW = wHere * 0.45;
+      ctx.fillStyle = `rgba(255,255,255,${0.05 * (1-t)})`;
+      ctx.beginPath();
+      ctx.ellipse(cx + Math.sin(perfT*0.004 + t*8)*10, y, bandW, 16, 0, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // Debris base
+    ctx.fillStyle = "rgba(255,255,255,0.14)";
+    ctx.beginPath();
+    ctx.ellipse(cx + wob*0.2, groundY + 12, baseW*0.60, 28, 0, 0, Math.PI*2);
+    ctx.fill();
+
+    if (storm.type === "rope") {
+      ctx.strokeStyle = "rgba(255,255,255,0.25)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(cx + wob2, topY);
+      ctx.lineTo(cx + wob, groundY);
+      ctx.stroke();
+    }
 
     ctx.globalAlpha = 1;
   }
 
-  // ---------- Drawing: mini map ----------
+  // ---------- Mini map ----------
   function drawMiniMap() {
     const w = mini.getBoundingClientRect().width;
     const h = mini.getBoundingClientRect().height;
+    const sx = w / world.w;
+    const sy = h / world.h;
 
-    // background
     mctx.clearRect(0,0,w,h);
     mctx.fillStyle = 'rgba(10, 18, 35, 0.92)';
     mctx.fillRect(0,0,w,h);
 
     // grid
-    const sx = w / world.w;
-    const sy = h / world.h;
     mctx.strokeStyle = 'rgba(255,255,255,0.06)';
     mctx.lineWidth = 1;
     for (let x=0; x<=world.w; x+=world.grid){
@@ -782,15 +739,14 @@
 
     // objects
     for (const o of world.objects){
+      const px = o.x*sx, py = o.y*sy;
       if (o.kind === 'house'){
         mctx.fillStyle = 'rgba(170,190,255,0.90)';
         mctx.strokeStyle = 'rgba(0,0,0,0.35)';
-        const px = o.x*sx, py = o.y*sy;
         mctx.fillRect(px-7, py-7, 14, 14);
         mctx.strokeRect(px-7, py-7, 14, 14);
       } else {
         mctx.fillStyle = 'rgba(120,255,180,0.85)';
-        const px = o.x*sx, py = o.y*sy;
         mctx.beginPath();
         mctx.arc(px, py, 6, 0, Math.PI*2);
         mctx.fill();
@@ -804,7 +760,7 @@
       mctx.fillRect(px-6, py-3, 12, 6);
     }
 
-    // tornado radius + path trail (white)
+    // path trail in mini-map (white)
     if (tornado.trail.length){
       mctx.strokeStyle = 'rgba(255,255,255,0.18)';
       mctx.lineWidth = 2;
@@ -818,10 +774,10 @@
       mctx.stroke();
     }
 
-    // tornado marker
+    // tornado marker + radius
+    const px = tornado.x*sx, py = tornado.y*sy;
     if (storm.active){
       const R = currentMiniRadius();
-      const px = tornado.x*sx, py = tornado.y*sy;
       mctx.fillStyle = 'rgba(255,255,255,0.85)';
       mctx.beginPath();
       mctx.arc(px, py, 5, 0, Math.PI*2);
@@ -833,8 +789,6 @@
       mctx.arc(px, py, R*sx, 0, Math.PI*2);
       mctx.stroke();
     } else {
-      // vanished marker
-      const px = tornado.x*sx, py = tornado.y*sy;
       mctx.fillStyle = 'rgba(255,123,123,0.8)';
       mctx.beginPath();
       mctx.arc(px, py, 4, 0, Math.PI*2);
@@ -842,19 +796,17 @@
     }
   }
 
-  // ---------- Drawing: radar ----------
+  // ---------- Radar ----------
   function drawRadar() {
     const w = radar.getBoundingClientRect().width;
     const h = radar.getBoundingClientRect().height;
     const sx = w / world.w;
     const sy = h / world.h;
 
-    // background radar screen
     rctx.clearRect(0,0,w,h);
     rctx.fillStyle = 'rgba(0, 25, 12, 0.85)';
     rctx.fillRect(0,0,w,h);
 
-    // faint sweeps
     rctx.strokeStyle = 'rgba(120,255,180,0.06)';
     rctx.lineWidth = 1;
     for (let i=0;i<7;i++){
@@ -863,7 +815,6 @@
       rctx.stroke();
     }
 
-    // tornado point (only if active)
     if (storm.active){
       const px = tornado.x*sx, py = tornado.y*sy;
       rctx.fillStyle = 'rgba(120,255,180,0.75)';
@@ -872,7 +823,6 @@
       rctx.fill();
     }
 
-    // blips (white dots that fade)
     for (const b of world.blips){
       const px = b.x*sx, py = b.y*sy;
       rctx.fillStyle = `rgba(255,255,255,${0.9*b.t})`;
@@ -882,7 +832,7 @@
     }
   }
 
-  // ---------- Status text ----------
+  // ---------- Status ----------
   function updateStatusText() {
     const kind = storm.type[0].toUpperCase() + storm.type.slice(1);
     statusLine1.innerHTML = `Storm: <b>${kind}</b> • EF<b>${storm.ef}</b> • Rain: <b>${storm.hasRain ? 'ON' : 'OFF'}</b> • Lightning: <b>${storm.hasLightning ? 'ON' : 'OFF'}</b>`;
@@ -890,22 +840,21 @@
     statusLine3.innerHTML = `Mini-map radius: <b>${Math.round(currentMiniRadius())} px</b> • Arrow keys: <b>move</b> (if tornado exists)`;
   }
 
-  // ---------- Main update loop ----------
+  // ---------- Main loop ----------
   let last = performance.now();
-  let perfT = 0;
 
   function step(now) {
-    const dt = Math.min(0.033, (now - last) / 1000); // seconds, capped
+    const dt = Math.min(0.033, (now - last) / 1000);
     last = now;
     perfT = now;
 
-    // lightning random flashes
+    // lightning random flash
     if (storm.hasLightning && Math.random() < 0.015){
       storm.lightningFlash = 1.0;
     }
     storm.lightningFlash *= 0.88;
 
-    // Tornado movement (world coords) via arrow keys — BUT ONLY if tornado exists
+    // Movement (ONLY if tornado exists)
     tornado.vx = 0; tornado.vy = 0;
     if (storm.active){
       if (keys.ArrowLeft) tornado.vx -= 1;
@@ -921,44 +870,36 @@
       tornado.y = clamp(tornado.y + tornado.vy * (dt*60), 0, world.h);
     }
 
-    // If keep is OFF, rope out and vanish
-    if (!storm.keepTornado && storm.active){
-      if (!storm.ropingOut) startRopeOut();
-    }
+    // Rope out if keep is off
+    if (!storm.keepTornado && storm.active && !storm.ropingOut) startRopeOut();
     if (storm.ropingOut){
-      storm.vanishT += dt * 0.28; // ~3.5s vanish
+      storm.vanishT += dt * 0.28; // ~3.5s
       if (storm.vanishT >= 1){
         storm.vanishT = 1;
-        storm.active = false; // now dead
+        storm.active = false;
         storm.ropingOut = false;
       }
     }
 
-    // Track trail (in sim coords and in world coords for minimap)
-    // We keep two coordinate sets: sim center point for main, and world coords for minimap trail.
+    // Trail (screen coords + world coords)
     const simW = sim.getBoundingClientRect().width;
     const simH = sim.getBoundingClientRect().height;
-
-    // main sim trail uses screen coords near center
     const screenX = simW*0.5 + Math.sin(now*0.005)*2;
     const screenY = simH*0.55 + Math.cos(now*0.004)*2;
 
     tornado.trail.push({ x: screenX, y: screenY, wx: tornado.x, wy: tornado.y });
     if (tornado.trail.length > 90) tornado.trail.shift();
 
-    // Physics + interactions
     updateCars(dt);
     pushObjectsNearTornado(dt);
     updateObjectPhysics(dt);
 
-    // Radar blips decay
     for (let i=world.blips.length-1;i>=0;i--){
-      world.blips[i].t -= dt * 1.2; // ~0.8s–1s fade
+      world.blips[i].t -= dt * 1.2;
       if (world.blips[i].t <= 0) world.blips.splice(i,1);
     }
 
-    // Draw
-    resizeAll(); // keeps it crisp if layout changes
+    resizeAll();
     draw();
 
     syncUI();
@@ -974,22 +915,19 @@
     ctx.clearRect(0,0,w,h);
     drawSkyBackground(w,h);
 
-    // distant horizon/ground
+    // horizon ground
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.fillRect(0, h*0.78, w, h*0.22);
 
-    // rain + tornado + lightning flash
     drawRain(w,h);
     drawTornadoMain(w,h);
     drawLightningFlash(w,h);
 
-    // UI overlay text
     ctx.fillStyle = 'rgba(233,238,255,0.8)';
     ctx.font = '700 14px system-ui';
     const kind = storm.type[0].toUpperCase() + storm.type.slice(1);
     ctx.fillText(`${kind} • EF${storm.ef}`, 14, 24);
 
-    // minimap + radar
     drawMiniMap();
     drawRadar();
   }

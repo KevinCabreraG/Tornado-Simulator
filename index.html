@@ -6,158 +6,65 @@
   <title>Tornado Simulator</title>
   <style>
     :root{
-      --bg:#0b1020;
-      --txt:#e9eeff;
-      --muted:#9fb0ff;
-      --accent:#76d6ff;
-      --danger:#ff7b7b;
+      --bg:#0b1020; --txt:#e9eeff; --muted:#9fb0ff; --accent:#76d6ff; --danger:#ff7b7b;
     }
     *{box-sizing:border-box}
     body{
-      margin:0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
       background: radial-gradient(1200px 700px at 60% 10%, #15214a 0%, var(--bg) 55%, #060913 100%);
-      color:var(--txt);
-      display:flex;
-      min-height:100vh;
-      overflow:hidden;
+      color:var(--txt); display:flex; min-height:100vh; overflow:hidden;
     }
-    .wrap{
-      display:grid;
-      grid-template-columns: 1fr 340px;
-      gap:14px;
-      padding:14px;
-      width:100%;
-      height:100vh;
-    }
-    .left{
-      display:grid;
-      grid-template-rows: auto 1fr auto;
-      gap:12px;
-      min-width:0;
-    }
+    .wrap{ display:grid; grid-template-columns: 1fr 340px; gap:14px; padding:14px; width:100%; height:100vh; }
+    .left{ display:grid; grid-template-rows: auto 1fr auto; gap:12px; min-width:0; }
     .topbar{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      flex-wrap:wrap;
-      padding:10px 12px;
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+      padding:10px 12px; border:1px solid rgba(255,255,255,0.10); border-radius:14px;
       background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
-      border:1px solid rgba(255,255,255,0.10);
-      border-radius:14px;
       backdrop-filter: blur(8px);
     }
-    .topbar h1{
-      font-size:16px;
-      margin:0 8px 0 0;
-      letter-spacing:.2px;
-      color:var(--txt);
-      font-weight:800;
-    }
+    .topbar h1{ font-size:16px; margin:0 8px 0 0; letter-spacing:.2px; font-weight:900; }
     .btn{
-      cursor:pointer;
-      border:1px solid rgba(255,255,255,0.14);
-      background: rgba(255,255,255,0.06);
-      color:var(--txt);
-      padding:8px 10px;
-      border-radius:12px;
-      font-weight:750;
-      font-size:13px;
-      transition: transform .06s ease, background .15s ease, border-color .15s ease;
-      user-select:none;
+      cursor:pointer; border:1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06);
+      color:var(--txt); padding:8px 10px; border-radius:12px; font-weight:800; font-size:13px;
+      transition: transform .06s ease, background .15s ease, border-color .15s ease; user-select:none;
     }
     .btn:hover{ background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.22); }
     .btn:active{ transform: translateY(1px); }
-    .btn.on{
-      background: rgba(118,214,255,0.16);
-      border-color: rgba(118,214,255,0.45);
-      color:#e9fbff;
-    }
-    .btn.danger{
-      background: rgba(255,123,123,0.12);
-      border-color: rgba(255,123,123,0.35);
-    }
+    .btn.on{ background: rgba(118,214,255,0.16); border-color: rgba(118,214,255,0.45); color:#e9fbff; }
+    .btn.danger{ background: rgba(255,123,123,0.12); border-color: rgba(255,123,123,0.35); }
+
     .ctrl{
-      display:flex;
-      align-items:center;
-      gap:8px;
-      padding:6px 10px;
-      border-radius:12px;
-      border:1px solid rgba(255,255,255,0.12);
-      background: rgba(0,0,0,0.18);
+      display:flex; align-items:center; gap:8px; padding:6px 10px;
+      border-radius:12px; border:1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.18);
       font-size:13px;
     }
-    label{ color:var(--muted); font-weight:750; }
+    label{ color:var(--muted); font-weight:850; }
     select, input[type="range"]{ accent-color: var(--accent); }
 
     .stage{
-      position:relative;
-      border-radius:16px;
-      overflow:hidden;
-      border:1px solid rgba(255,255,255,0.12);
+      position:relative; border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,0.12);
       background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.15));
       min-width:0;
     }
     canvas{ display:block; width:100%; height:100%; }
 
     .footer{
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      padding:10px 12px;
-      border:1px solid rgba(255,255,255,0.10);
-      border-radius:14px;
-      background: rgba(0,0,0,0.20);
-      color: var(--muted);
-      font-size:13px;
+      display:flex; justify-content:space-between; align-items:center; padding:10px 12px;
+      border:1px solid rgba(255,255,255,0.10); border-radius:14px; background: rgba(0,0,0,0.20);
+      color: var(--muted); font-size:13px;
     }
-    .hint{
-      color: var(--muted);
-      font-size:12px;
-      line-height:1.25;
-    }
+    .hint{ color: var(--muted); font-size:12px; line-height:1.25; }
 
-    .right{
-      display:grid;
-      grid-template-rows: 1fr 1fr 1fr;
-      gap:12px;
-      min-width:0;
-      height: 100%;
-    }
-    .panel{
-      background: rgba(0,0,0,0.20);
-      border:1px solid rgba(255,255,255,0.10);
-      border-radius:14px;
-      overflow:hidden;
-      min-width:0;
-    }
+    .right{ display:grid; grid-template-rows: 1fr 1fr 1fr; gap:12px; min-width:0; height: 100%; }
+    .panel{ background: rgba(0,0,0,0.20); border:1px solid rgba(255,255,255,0.10); border-radius:14px; overflow:hidden; min-width:0; }
     .panelHeader{
-      padding:10px 12px;
-      display:flex;
-      justify-content:space-between;
-      align-items:center;
-      background: rgba(255,255,255,0.04);
-      border-bottom:1px solid rgba(255,255,255,0.08);
-      font-weight:900;
-      letter-spacing:.2px;
+      padding:10px 12px; display:flex; justify-content:space-between; align-items:center;
+      background: rgba(255,255,255,0.04); border-bottom:1px solid rgba(255,255,255,0.08);
+      font-weight:950; letter-spacing:.2px;
     }
-    .panelBody{
-      padding:10px;
-      height: calc(100% - 44px);
-      min-height: 220px;
-    }
-    .panelBody .canvasBox{
-      height:100%;
-      border-radius:12px;
-      overflow:hidden;
-      border:1px solid rgba(255,255,255,0.10);
-      background: rgba(0,0,0,0.25);
-    }
-    .tag{
-      font-size:12px;
-      color: var(--muted);
-      font-weight:800;
-    }
+    .panelBody{ padding:10px; height: calc(100% - 44px); min-height: 220px; }
+    .panelBody .canvasBox{ height:100%; border-radius:12px; overflow:hidden; border:1px solid rgba(255,255,255,0.10); background: rgba(0,0,0,0.25); }
+    .tag{ font-size:12px; color: var(--muted); font-weight:900; }
   </style>
 </head>
 <body>
@@ -175,7 +82,7 @@
         <div class="ctrl" title="EF scale changes mini-map tornado radius and damage force">
           <label for="ef">EF:</label>
           <input id="ef" type="range" min="0" max="5" step="1" value="2" />
-          <span id="efVal" style="font-weight:900;">2</span>
+          <span id="efVal" style="font-weight:950;">2</span>
         </div>
 
         <div class="ctrl" title="Tornado shape type">
@@ -187,55 +94,36 @@
           </select>
         </div>
 
-        <div class="hint">Controls: <b>Arrow keys</b> to move. If Keep Tornado is OFF, it will <b>rope out</b> and vanish.</div>
+        <div class="hint">Controls: <b>Arrow keys</b> to move. Keep Tornado OFF = ropes out + vanishes.</div>
       </div>
 
-      <div class="stage">
-        <canvas id="sim"></canvas>
-      </div>
+      <div class="stage"><canvas id="sim"></canvas></div>
 
       <div class="footer">
         <div>Made by Kevin Cabrera</div>
-        <div class="tag">Mini-map uses emojis 🏠🌳🚗</div>
+        <div class="tag">Mini-map emojis: 🏠🌳🚗</div>
       </div>
     </div>
 
     <div class="right">
       <div class="panel">
-        <div class="panelHeader">
-          <div>🗺️ Mini Map</div>
-          <div class="tag" id="miniTag">Active</div>
-        </div>
-        <div class="panelBody">
-          <div class="canvasBox">
-            <canvas id="mini"></canvas>
-          </div>
-        </div>
+        <div class="panelHeader"><div>🗺️ Mini Map</div><div class="tag" id="miniTag">Active</div></div>
+        <div class="panelBody"><div class="canvasBox"><canvas id="mini"></canvas></div></div>
       </div>
 
       <div class="panel">
-        <div class="panelHeader">
-          <div>📡 Radar</div>
-          <div class="tag">White blips fade</div>
-        </div>
-        <div class="panelBody">
-          <div class="canvasBox">
-            <canvas id="radar"></canvas>
-          </div>
-        </div>
+        <div class="panelHeader"><div>📡 Radar</div><div class="tag">White blips fade</div></div>
+        <div class="panelBody"><div class="canvasBox"><canvas id="radar"></canvas></div></div>
       </div>
 
       <div class="panel">
-        <div class="panelHeader">
-          <div>ℹ️ Status</div>
-          <div class="tag" id="stormTag">—</div>
-        </div>
+        <div class="panelHeader"><div>ℹ️ Status</div><div class="tag" id="stormTag">—</div></div>
         <div class="panelBody" style="padding:12px; display:flex; flex-direction:column; gap:10px;">
           <div class="hint" id="statusLine1"></div>
           <div class="hint" id="statusLine2"></div>
           <div class="hint" id="statusLine3"></div>
           <div class="hint" style="opacity:.95;">
-            Lightning is now a <b>real bolt shape</b> (not a full-screen flash). Tornado shapes are <b>more defined</b> with a clear rotating swirl.
+            Fixes in this version: <b>radius scales better</b> and shapes are <b>strict wedge / cone / rope</b> with clearer spin bands.
           </div>
         </div>
       </div>
@@ -245,15 +133,12 @@
 <script>
 (() => {
   // ---------- Helpers ----------
-  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  const rand = (a=0, b=1) => a + Math.random()*(b-a);
-  const choose = (arr) => arr[Math.floor(Math.random()*arr.length)];
-  const dist2 = (ax, ay, bx, by) => {
-    const dx = ax - bx, dy = ay - by;
-    return dx*dx + dy*dy;
-  };
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const rand = (a=0,b=1)=>a+Math.random()*(b-a);
+  const choose = (arr)=>arr[Math.floor(Math.random()*arr.length)];
+  const dist2 = (ax,ay,bx,by)=>{ const dx=ax-bx, dy=ay-by; return dx*dx+dy*dy; };
 
-  // ---------- Canvas setup ----------
+  // ---------- Canvas ----------
   const sim = document.getElementById('sim');
   const mini = document.getElementById('mini');
   const radar = document.getElementById('radar');
@@ -261,15 +146,14 @@
   const mctx = mini.getContext('2d');
   const rctx = radar.getContext('2d');
 
-  function fitCanvas(c) {
+  function fitCanvas(c){
     const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
     const rect = c.getBoundingClientRect();
-    c.width = Math.floor(rect.width * dpr);
-    c.height = Math.floor(rect.height * dpr);
-    const cctx = c.getContext('2d');
-    cctx.setTransform(dpr,0,0,dpr,0,0);
+    c.width = Math.floor(rect.width*dpr);
+    c.height = Math.floor(rect.height*dpr);
+    c.getContext('2d').setTransform(dpr,0,0,dpr,0,0);
   }
-  function resizeAll() { fitCanvas(sim); fitCanvas(mini); fitCanvas(radar); }
+  function resizeAll(){ fitCanvas(sim); fitCanvas(mini); fitCanvas(radar); }
   window.addEventListener('resize', resizeAll);
 
   // ---------- UI ----------
@@ -287,735 +171,576 @@
   const statusLine2 = document.getElementById('statusLine2');
   const statusLine3 = document.getElementById('statusLine3');
 
-  // ---------- Storm state ----------
+  // ---------- State ----------
   const storm = {
-    hasRain: false,
-    hasLightning: false,
-    keepTornado: true,
-    type: 'cone',
-    ef: 2,
-    active: true,
-    ropingOut: false,
-    vanishT: 0,
-
-    // lightning bolt (shape, not flash)
-    bolt: null, // {pts:[{x,y}...], t:0..1}
-    boltCooldown: 0,
+    hasRain:false, hasLightning:false, keepTornado:true,
+    type:'cone', ef:2,
+    active:true, ropingOut:false, vanishT:0,
+    bolt:null, boltCooldown:0,
   };
 
-  const tornado = {
-    x: 0, y: 0,
-    vx: 0, vy: 0,
-    speed: 2.8,
-    // trail stores world coords too so minimap trail matches
-    trail: [], // {sx,sy, wx,wy}
-  };
-
-  // ---------- Mini map world ----------
-  const world = {
-    w: 520,
-    h: 520,
-    grid: 40,
-    objects: [],
-    cars: [],
-    blips: [],
-  };
-
-  // ---------- Particles ----------
+  const tornado = { x:0, y:0, vx:0, vy:0, speed:2.9, trail:[] }; // trail: {sx,sy,wx,wy}
+  const world = { w:520, h:520, grid:40, objects:[], cars:[], blips:[] };
   const rainDrops = [];
-  function spawnRain(count=12) {
-    const w = sim.getBoundingClientRect().width;
-    const h = sim.getBoundingClientRect().height;
-    for (let i=0;i<count;i++){
-      rainDrops.push({
-        x: rand(0, w),
-        y: rand(-h, 0),
-        vy: rand(9, 15),
-        vx: rand(-1.1, 1.1),
-        len: rand(10, 20),
-      });
-    }
+
+  // ---------- Radius FIX ----------
+  // EF size, plus type multipliers so wedge > cone > rope (like real life)
+  function typeRadiusMult(type){
+    if (type === 'wedge') return 1.25;
+    if (type === 'cone') return 1.00;
+    return 0.55; // rope
   }
+  function efToBaseRadius(ef){
+    // Much more sane scaling (EF0 small, EF5 big but not insane)
+    // EF0 14px, EF1 20, EF2 28, EF3 38, EF4 50, EF5 64
+    return [14, 20, 28, 38, 50, 64][ef] ?? 28;
+  }
+  function currentMiniRadius(){
+    let r = efToBaseRadius(storm.ef) * typeRadiusMult(storm.type);
 
-  // ---------- EF scaling ----------
-  function efToRadius(ef) { return 16 + ef * 14; }
-  function efToPush(ef) { return (ef/5) ** 1.2; }
-
-  function currentMiniRadius() {
-    let r = efToRadius(storm.ef);
+    // roping out shrinks all types to a rope-ish size then disappears
     if (storm.ropingOut){
-      const shrink = 1 - 0.82 * storm.vanishT;
-      r *= shrink;
-      r = Math.max(8, r);
+      const t = storm.vanishT;         // 0..1
+      const ropeFloor = 10;            // minimum visible radius
+      const shrunk = r * (1 - 0.78*t); // shrink
+      r = Math.max(ropeFloor, shrunk);
+      // final fade happens when active becomes false
     }
     if (!storm.active) r = 0;
     return r;
   }
+  function efToPush(ef){ return (ef/5) ** 1.15; }
 
-  // ---------- Build world objects ----------
-  function buildWorld() {
-    world.objects.length = 0;
-    world.cars.length = 0;
-    world.blips.length = 0;
+  // ---------- Build world ----------
+  function buildWorld(){
+    world.objects.length=0; world.cars.length=0; world.blips.length=0;
+    const mk=(kind,x,y)=>({kind,x,y,vx:0,vy:0});
+    for(let i=0;i<12;i++) world.objects.push(mk('house', rand(60, world.w-60), rand(60, world.h-60)));
+    for(let i=0;i<18;i++) world.objects.push(mk('tree', rand(30, world.w-30), rand(30, world.h-30)));
 
-    const mkObj = (kind, x, y) => ({ kind, x, y, vx:0, vy:0 });
-
-    // houses + trees
-    for (let i=0;i<12;i++){
-      world.objects.push(mkObj('house', rand(60, world.w-60), rand(60, world.h-60)));
+    const lanes=[120,200,280,360,440];
+    for(let i=0;i<9;i++){
+      const lane=choose(lanes);
+      world.cars.push({ x:rand(0,world.w), y:lane+rand(-4,4), vx:choose([1.0,1.25,1.5,1.75])*choose([1,-1]), lane });
     }
-    for (let i=0;i<18;i++){
-      world.objects.push(mkObj('tree', rand(30, world.w-30), rand(30, world.h-30)));
-    }
+  }
 
-    // cars move along lanes (always moving)
-    const lanes = [120, 200, 280, 360, 440];
-    for (let i=0;i<9;i++){
-      const laneY = choose(lanes);
-      world.cars.push({
-        x: rand(0, world.w),
-        y: laneY + rand(-4, 4),
-        vx: choose([1.0, 1.25, 1.5, 1.75]) * choose([1,-1]),
-        lane: laneY
-      });
+  // ---------- Rain ----------
+  function spawnRain(n=14){
+    const w=sim.getBoundingClientRect().width, h=sim.getBoundingClientRect().height;
+    for(let i=0;i<n;i++){
+      rainDrops.push({ x:rand(0,w), y:rand(-h,0), vy:rand(9,16), vx:rand(-1.2,1.2), len:rand(10,22) });
     }
   }
 
   // ---------- Radar blips ----------
-  function addRadarBlip(x, y) { world.blips.push({ x, y, t: 1.0 }); }
+  function addRadarBlip(x,y){ world.blips.push({x,y,t:1.0}); }
 
-  // ---------- Object physics ----------
-  function objectMass(kind){ return kind === 'house' ? 1.8 : 0.9; }
+  // ---------- Physics ----------
+  function objectMass(kind){ return kind==='house' ? 2.0 : 0.95; }
 
-  function updateObjectPhysics(dt) {
-    for (const o of world.objects){
-      o.vx *= 0.90;
-      o.vy *= 0.90;
-      o.x += o.vx * dt;
-      o.y += o.vy * dt;
+  function updateObjectPhysics(dt){
+    for(const o of world.objects){
+      o.vx*=0.90; o.vy*=0.90;
+      o.x += o.vx * dt; o.y += o.vy * dt;
       o.x = clamp(o.x, 12, world.w-12);
       o.y = clamp(o.y, 12, world.h-12);
     }
   }
 
-  function pushObjectsNearTornado(dt) {
-    if (!storm.active) return;
+  function pushObjectsNearTornado(dt){
+    if(!storm.active) return;
+    const R=currentMiniRadius(), R2=R*R;
+    const strength=efToPush(storm.ef);
+    if(strength<=0) return;
 
-    const R = currentMiniRadius();
-    const R2 = R*R;
-    const strength = efToPush(storm.ef);
-    if (strength <= 0) return;
-
-    const tx = tornado.x;
-    const ty = tornado.y;
-
-    for (const o of world.objects){
-      const d2 = dist2(tx, ty, o.x, o.y);
-      if (d2 <= R2){
-        const d = Math.sqrt(d2) + 0.0001;
-        const nx = (o.x - tx) / d;
-        const ny = (o.y - ty) / d;
-
-        // swirl vector (perpendicular)
-        const sx = -ny;
-        const sy = nx;
-
+    const tx=tornado.x, ty=tornado.y;
+    for(const o of world.objects){
+      const d2 = dist2(tx,ty,o.x,o.y);
+      if(d2<=R2){
+        const d=Math.sqrt(d2)+0.0001;
+        const nx=(o.x-tx)/d, ny=(o.y-ty)/d;
+        const sx=-ny, sy=nx;
+        const falloff = 1 - (d/R);
         const mass = objectMass(o.kind);
-        const falloff = 1 - (d / R);
-        const impulse = (280 * strength * falloff / mass) * dt;
+        const impulse = (260 * strength * falloff / mass) * dt;
 
-        o.vx += (nx * impulse) + (sx * impulse * 0.40);
-        o.vy += (ny * impulse) + (sy * impulse * 0.40);
+        o.vx += nx*impulse + sx*impulse*0.42;
+        o.vy += ny*impulse + sy*impulse*0.42;
 
-        if (Math.random() < 0.18 * dt) addRadarBlip(o.x, o.y);
+        if(Math.random()<0.18*dt) addRadarBlip(o.x,o.y);
       }
     }
   }
 
-  // ---------- Cars ----------
-  function updateCars(dt) {
-    for (const c of world.cars){
-      // move
-      c.x += c.vx * dt * 60/1.0;
-      // keep roughly in lane
+  function updateCars(dt){
+    for(const c of world.cars){
+      c.x += c.vx * dt * 60;
       c.y += (c.lane - c.y) * 0.02;
+      if(c.x<-40) c.x=world.w+40;
+      if(c.x>world.w+40) c.x=-40;
 
-      // wrap
-      if (c.x < -40) c.x = world.w + 40;
-      if (c.x > world.w + 40) c.x = -40;
-
-      // tornado shove
-      if (storm.active){
-        const R = currentMiniRadius() * 0.70;
-        const d2 = dist2(tornado.x, tornado.y, c.x, c.y);
-        if (d2 < R*R){
-          const d = Math.sqrt(d2)+0.001;
-          const nx = (c.x - tornado.x)/d;
-          const ny = (c.y - tornado.y)/d;
-          const strength = efToPush(storm.ef);
-          c.x += nx * strength * 4.0;
-          c.y += ny * strength * 2.0;
-          if (Math.random() < 0.12 * dt) addRadarBlip(c.x, c.y);
+      if(storm.active){
+        const R = currentMiniRadius()*0.70;
+        const d2 = dist2(tornado.x,tornado.y,c.x,c.y);
+        if(d2 < R*R){
+          const d=Math.sqrt(d2)+0.001;
+          const nx=(c.x-tornado.x)/d, ny=(c.y-tornado.y)/d;
+          const strength=efToPush(storm.ef);
+          c.x += nx*strength*4.2;
+          c.y += ny*strength*2.2;
+          if(Math.random()<0.12*dt) addRadarBlip(c.x,c.y);
         }
       }
-
       c.y = clamp(c.y, 18, world.h-18);
     }
   }
 
-  // ---------- Tornado life-cycle ----------
-  function startRopeOut() {
-    if (!storm.active) return;
-    storm.ropingOut = true;
-    storm.vanishT = 0;
+  // ---------- Rope-out ----------
+  function startRopeOut(){
+    if(!storm.active) return;
+    storm.ropingOut=true; storm.vanishT=0;
   }
 
-  function resetStorm() {
-    storm.hasRain = false;
-    storm.hasLightning = false;
-    storm.keepTornado = true;
-    storm.type = 'cone';
-    storm.ef = 2;
-    storm.active = true;
-    storm.ropingOut = false;
-    storm.vanishT = 0;
-    storm.bolt = null;
-    storm.boltCooldown = 0;
+  function resetStorm(){
+    storm.hasRain=false; storm.hasLightning=false; storm.keepTornado=true;
+    storm.type='cone'; storm.ef=2;
+    storm.active=true; storm.ropingOut=false; storm.vanishT=0;
+    storm.bolt=null; storm.boltCooldown=0;
 
-    tornado.x = world.w/2;
-    tornado.y = world.h/2;
-    tornado.vx = tornado.vy = 0;
-    tornado.trail.length = 0;
-
-    rainDrops.length = 0;
+    tornado.x=world.w/2; tornado.y=world.h/2;
+    tornado.vx=tornado.vy=0; tornado.trail.length=0;
+    rainDrops.length=0;
     buildWorld();
     syncUI();
   }
 
   // ---------- Input ----------
-  const keys = { ArrowUp:false, ArrowDown:false, ArrowLeft:false, ArrowRight:false };
-  window.addEventListener('keydown', (e) => {
-    if (e.key in keys) { keys[e.key] = true; e.preventDefault(); }
-  }, { passive:false });
-  window.addEventListener('keyup', (e) => {
-    if (e.key in keys) { keys[e.key] = false; e.preventDefault(); }
-  }, { passive:false });
+  const keys={ArrowUp:false,ArrowDown:false,ArrowLeft:false,ArrowRight:false};
+  window.addEventListener('keydown',(e)=>{ if(e.key in keys){ keys[e.key]=true; e.preventDefault(); } },{passive:false});
+  window.addEventListener('keyup',(e)=>{ if(e.key in keys){ keys[e.key]=false; e.preventDefault(); } },{passive:false});
 
-  // ---------- UI events ----------
+  // ---------- UI wiring ----------
   function syncUI(){
     btnRain.classList.toggle('on', storm.hasRain);
     btnLightning.classList.toggle('on', storm.hasLightning);
     btnKeep.classList.toggle('on', storm.keepTornado);
+    efSlider.value=String(storm.ef); efVal.textContent=String(storm.ef);
+    typeSel.value=storm.type;
 
-    efSlider.value = String(storm.ef);
-    efVal.textContent = String(storm.ef);
-    typeSel.value = storm.type;
-
-    const kind = storm.type[0].toUpperCase() + storm.type.slice(1);
-    stormTag.textContent = `${kind} • EF${storm.ef} • ${storm.active ? (storm.ropingOut ? 'Roping out' : 'Active') : 'Vanished'}`;
+    const kind=storm.type[0].toUpperCase()+storm.type.slice(1);
+    stormTag.textContent = `${kind} • EF${storm.ef} • ${storm.active ? (storm.ropingOut?'Roping out':'Active') : 'Vanished'}`;
     miniTag.textContent = storm.active ? "Active" : "Inactive";
     miniTag.style.color = storm.active ? "var(--muted)" : "var(--danger)";
   }
 
-  btnRain.addEventListener('click', () => { storm.hasRain = !storm.hasRain; syncUI(); });
-  btnLightning.addEventListener('click', () => { storm.hasLightning = !storm.hasLightning; syncUI(); });
-
-  btnKeep.addEventListener('click', () => {
-    storm.keepTornado = !storm.keepTornado;
-    if (!storm.keepTornado) startRopeOut();
+  btnRain.addEventListener('click',()=>{ storm.hasRain=!storm.hasRain; syncUI(); });
+  btnLightning.addEventListener('click',()=>{ storm.hasLightning=!storm.hasLightning; syncUI(); });
+  btnKeep.addEventListener('click',()=>{
+    storm.keepTornado=!storm.keepTornado;
+    if(!storm.keepTornado) startRopeOut();
     syncUI();
   });
 
-  btnRandom.addEventListener('click', () => {
+  btnRandom.addEventListener('click',()=>{
     storm.type = choose(['wedge','cone','rope']);
-    storm.hasRain = Math.random() < 0.75;
-    storm.hasLightning = Math.random() < 0.6;
+    storm.hasRain = Math.random()<0.75;
+    storm.hasLightning = Math.random()<0.6;
     storm.keepTornado = true;
-    storm.active = true;
-    storm.ropingOut = false;
-    storm.vanishT = 0;
+    storm.active=true; storm.ropingOut=false; storm.vanishT=0;
+    storm.bolt=null; storm.boltCooldown=0;
 
-    const roll = Math.random();
-    storm.ef = roll < 0.32 ? 0 : roll < 0.58 ? 1 : roll < 0.76 ? 2 : roll < 0.88 ? 3 : roll < 0.96 ? 4 : 5;
+    const roll=Math.random();
+    storm.ef = roll<0.32?0 : roll<0.58?1 : roll<0.76?2 : roll<0.88?3 : roll<0.96?4 : 5;
 
-    tornado.x = rand(60, world.w-60);
-    tornado.y = rand(60, world.h-60);
-    tornado.trail.length = 0;
-
+    tornado.x=rand(60,world.w-60); tornado.y=rand(60,world.h-60);
+    tornado.trail.length=0;
     syncUI();
   });
 
   btnReset.addEventListener('click', resetStorm);
+  efSlider.addEventListener('input',()=>{ storm.ef=parseInt(efSlider.value,10); efVal.textContent=String(storm.ef); syncUI(); });
+  typeSel.addEventListener('change',()=>{ storm.type=typeSel.value; syncUI(); });
 
-  efSlider.addEventListener('input', () => {
-    storm.ef = parseInt(efSlider.value, 10);
-    efVal.textContent = String(storm.ef);
-    syncUI();
-  });
-
-  typeSel.addEventListener('change', () => { storm.type = typeSel.value; syncUI(); });
-
-  // ---------- Lightning bolt (real shape) ----------
-  function generateBolt(w, h) {
-    // bolt around tornado area, from cloud band to near ground
-    const startX = w*0.5 + rand(-w*0.25, w*0.25);
-    const startY = h*0.16 + rand(-10, 12);
+  // ---------- Lightning bolt ----------
+  function generateBolt(w,h){
+    const startX = w*0.5 + rand(-w*0.22, w*0.22);
+    const startY = h*0.16 + rand(-10, 10);
     const endX   = w*0.5 + rand(-w*0.18, w*0.18);
-    const endY   = h*0.78 + rand(-15, 10);
+    const endY   = h*0.79 + rand(-18, 10);
 
-    const segments = 10;
-    const pts = [{x:startX, y:startY}];
-    for (let i=1;i<segments;i++){
-      const t = i/segments;
-      const x = startX + (endX-startX)*t + rand(-18, 18);
-      const y = startY + (endY-startY)*t + rand(-8, 10);
-      pts.push({x,y});
+    const seg=11;
+    const pts=[{x:startX,y:startY}];
+    for(let i=1;i<seg;i++){
+      const t=i/seg;
+      pts.push({
+        x: startX+(endX-startX)*t + rand(-16,16),
+        y: startY+(endY-startY)*t + rand(-8,10)
+      });
     }
-    pts.push({x:endX, y:endY});
+    pts.push({x:endX,y:endY});
 
-    // one branch sometimes
-    let branch = null;
-    if (Math.random() < 0.55){
-      const idx = Math.floor(rand(3, segments-2));
-      const bx0 = pts[idx].x;
-      const by0 = pts[idx].y;
-      branch = [{x:bx0, y:by0}];
-      const bEndX = bx0 + rand(-70, 70);
-      const bEndY = by0 + rand(40, 110);
-      const bSeg = 4;
-      for (let j=1;j<=bSeg;j++){
-        const tt = j/bSeg;
-        branch.push({
-          x: bx0 + (bEndX-bx0)*tt + rand(-10,10),
-          y: by0 + (bEndY-by0)*tt + rand(-6,8),
-        });
+    let branch=null;
+    if(Math.random()<0.55){
+      const idx=Math.floor(rand(3, seg-2));
+      const bx0=pts[idx].x, by0=pts[idx].y;
+      branch=[{x:bx0,y:by0}];
+      const bEndX=bx0+rand(-70,70), bEndY=by0+rand(40,110);
+      const bSeg=4;
+      for(let j=1;j<=bSeg;j++){
+        const tt=j/bSeg;
+        branch.push({ x: bx0+(bEndX-bx0)*tt + rand(-10,10), y: by0+(bEndY-by0)*tt + rand(-6,8) });
       }
     }
 
-    storm.bolt = { pts, branch, t: 1.0 };
+    storm.bolt={pts,branch,t:1.0};
   }
 
   // ---------- Drawing ----------
-  let perfT = 0;
+  let perfT=0;
 
-  function drawSkyBackground(w, h) {
-    const g = ctx.createLinearGradient(0,0,0,h);
-    g.addColorStop(0, 'rgba(25, 40, 85, 0.78)');
-    g.addColorStop(0.45, 'rgba(13, 20, 45, 0.88)');
-    g.addColorStop(1, 'rgba(5, 8, 18, 0.96)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0,0,w,h);
-
-    // cloud bands
-    for (let i=0;i<8;i++){
-      const y = (h*0.09) + i*(h*0.08) + Math.sin(perfT*0.0007 + i)*7;
-      ctx.fillStyle = `rgba(255,255,255,${0.02 + i*0.001})`;
-      ctx.fillRect(0, y, w, 22);
+  function drawSky(w,h){
+    const g=ctx.createLinearGradient(0,0,0,h);
+    g.addColorStop(0,'rgba(25,40,85,0.80)');
+    g.addColorStop(0.45,'rgba(13,20,45,0.90)');
+    g.addColorStop(1,'rgba(5,8,18,0.97)');
+    ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+    for(let i=0;i<8;i++){
+      const y=(h*0.09)+i*(h*0.08)+Math.sin(perfT*0.0007+i)*7;
+      ctx.fillStyle=`rgba(255,255,255,${0.02+i*0.001})`;
+      ctx.fillRect(0,y,w,22);
     }
   }
 
-  function drawRain(w, h) {
-    if (!storm.hasRain) return;
-    if (rainDrops.length < 520) spawnRain(16);
-
-    ctx.lineWidth = 1;
-    for (let i=rainDrops.length-1;i>=0;i--){
-      const d = rainDrops[i];
-      ctx.strokeStyle = 'rgba(200,220,255,0.22)';
+  function drawRain(w,h){
+    if(!storm.hasRain) return;
+    if(rainDrops.length<560) spawnRain(18);
+    ctx.lineWidth=1;
+    for(let i=rainDrops.length-1;i>=0;i--){
+      const d=rainDrops[i];
+      ctx.strokeStyle='rgba(200,220,255,0.22)';
       ctx.beginPath();
-      ctx.moveTo(d.x, d.y);
-      ctx.lineTo(d.x + d.vx*1.5, d.y + d.len);
+      ctx.moveTo(d.x,d.y);
+      ctx.lineTo(d.x+d.vx*1.5, d.y+d.len);
       ctx.stroke();
-
-      d.x += d.vx;
-      d.y += d.vy;
-
-      if (d.y > h + 30){
-        d.y = rand(-240, -20);
-        d.x = rand(0, w);
-        d.vy = rand(9,15);
-        d.vx = rand(-1.1, 1.1);
-        d.len = rand(10,20);
+      d.x+=d.vx; d.y+=d.vy;
+      if(d.y>h+30){
+        d.y=rand(-260,-20); d.x=rand(0,w);
+        d.vy=rand(9,16); d.vx=rand(-1.2,1.2); d.len=rand(10,22);
       }
     }
   }
 
-  // ✅ FIXED tornado shapes: defined silhouette + clear rotation swirl
-  function drawTornadoMain(w, h) {
-    const cx = w*0.5;
-    const topY = h*0.16;
-    const groundY = h*0.80;
+  // ---------- SHAPES FIX (strict wedge / cone / rope) ----------
+  // cone: moderately narrow top, moderately wide bottom
+  // wedge: wide top AND wide bottom
+  // rope: small top AND small bottom
+  function shapeDims(ef,type){
+    const efScale = 0.92 + ef*0.10;
 
-    // white trail in main sim
+    if(type==='cone'){
+      return { topW: 60*efScale, baseW: 185*efScale, curve: 0.58 };
+    }
+    if(type==='wedge'){
+      return { topW: 210*efScale, baseW: 230*efScale, curve: 0.24 };
+    }
+    // rope
+    return { topW: 22*efScale, baseW: 30*efScale, curve: 0.72 };
+  }
+
+  function drawTornadoMain(w,h){
+    const cx=w*0.5;
+    const topY=h*0.16;
+    const groundY=h*0.80;
+
+    // Trail (white)
     ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-    for (let i=0;i<tornado.trail.length;i++){
-      const p = tornado.trail[i];
-      const a = i / tornado.trail.length;
-      ctx.strokeStyle = `rgba(255,255,255,${0.06 * a})`;
-      ctx.lineWidth = 10 * a;
+    ctx.globalCompositeOperation='lighter';
+    for(let i=0;i<tornado.trail.length;i++){
+      const p=tornado.trail[i];
+      const a=i/tornado.trail.length;
+      ctx.strokeStyle=`rgba(255,255,255,${0.06*a})`;
+      ctx.lineWidth=10*a;
       ctx.beginPath();
-      ctx.moveTo(p.sx, p.sy);
-      ctx.lineTo(p.sx + 0.01, p.sy + 0.01);
+      ctx.moveTo(p.sx,p.sy);
+      ctx.lineTo(p.sx+0.01,p.sy+0.01);
       ctx.stroke();
     }
     ctx.restore();
 
-    if (!storm.active) return;
+    if(!storm.active) return;
 
-    const fade = storm.ropingOut ? (1 - storm.vanishT) : 1;
-    ctx.globalAlpha = fade;
+    // fade while roping
+    const fade = storm.ropingOut ? (1-storm.vanishT) : 1;
+    ctx.globalAlpha=fade;
 
-    const efScale = 0.80 + storm.ef * 0.18;
+    let {topW, baseW, curve} = shapeDims(storm.ef, storm.type);
 
-    // ✅ shapes tuned to what you described:
-    // - cone: not super wide at top, not super tiny at bottom
-    // - wedge: wide at top AND bottom
-    // - rope: small both sides
-    let topW, baseW, curve;
-    if (storm.type === "cone") {
-      topW  = 70  * efScale;   // not too wide
-      baseW = 210 * efScale;   // not too small
-      curve = 0.55;            // more curved sides
-    } else if (storm.type === "wedge") {
-      topW  = 230 * efScale;   // wide top
-      baseW = 260 * efScale;   // wide bottom
-      curve = 0.28;            // straighter sides
-    } else { // rope
-      topW  = 22 * efScale;    // small top
-      baseW = 34 * efScale;    // small bottom
-      curve = 0.70;            // slightly curved
+    // roping out: force toward rope size even if wedge/cone
+    if(storm.ropingOut){
+      const t=storm.vanishT;
+      const ropeTop=12, ropeBase=16;
+      topW  = topW*(1-0.85*t) + ropeTop*(0.85*t);
+      baseW = baseW*(1-0.78*t) + ropeBase*(0.78*t);
     }
 
-    // rope-out narrows all types before vanishing
-    if (storm.ropingOut){
-      const t = storm.vanishT;
-      topW  *= (1 - 0.80*t);
-      baseW *= (1 - 0.72*t);
-      topW  = Math.max(6, topW);
-      baseW = Math.max(10, baseW);
-    }
+    // tiny wobble (doesn't ruin silhouette)
+    const wob = Math.sin(perfT*0.004)*6;
+    const wob2= Math.cos(perfT*0.003)*4;
 
-    // wobble a tiny bit (doesn't ruin the shape)
-    const wob = Math.sin(perfT*0.004) * 8;
-    const wob2 = Math.cos(perfT*0.003) * 5;
+    const leftTopX=cx-topW/2+wob2;
+    const rightTopX=cx+topW/2+wob2;
+    const leftBaseX=cx-baseW/2+wob;
+    const rightBaseX=cx+baseW/2+wob;
 
-    // silhouette using bezier curves for "real" funnel sides
-    const leftTopX  = cx - topW/2 + wob2;
-    const rightTopX = cx + topW/2 + wob2;
-    const leftBaseX = cx - baseW/2 + wob;
-    const rightBaseX= cx + baseW/2 + wob;
+    // silhouette gradient
+    const bodyGrad=ctx.createLinearGradient(0,topY,0,groundY);
+    bodyGrad.addColorStop(0,'rgba(245,250,255,0.20)');
+    bodyGrad.addColorStop(0.60,'rgba(230,240,255,0.14)');
+    bodyGrad.addColorStop(1,'rgba(255,255,255,0.10)');
 
-    const midY = (topY + groundY)/2;
-    const ctrlOutTop = topW * (0.5 + curve);
-    const ctrlOutBot = baseW * (0.35 + (1-curve)*0.25);
+    // bezier control points (curve controls how “rounded” sides are)
+    const ctrlTop = topW*(0.55+curve);
+    const ctrlBot = baseW*(0.40+(1-curve)*0.20);
+    const midY=(topY+groundY)/2;
 
-    // fill gradient
-    const bodyGrad = ctx.createLinearGradient(0, topY, 0, groundY);
-    bodyGrad.addColorStop(0, "rgba(245,250,255,0.20)");
-    bodyGrad.addColorStop(0.55, "rgba(230,240,255,0.14)");
-    bodyGrad.addColorStop(1, "rgba(255,255,255,0.10)");
-
-    ctx.fillStyle = bodyGrad;
+    ctx.fillStyle=bodyGrad;
     ctx.beginPath();
     ctx.moveTo(leftTopX, topY);
-
-    // left side curve down
-    ctx.bezierCurveTo(
-      (cx - ctrlOutTop), topY + (midY-topY)*0.35,
-      (cx - ctrlOutBot), midY + (groundY-midY)*0.45,
-      leftBaseX, groundY
-    );
-
-    // base across
+    ctx.bezierCurveTo(cx-ctrlTop, topY+(midY-topY)*0.38, cx-ctrlBot, midY+(groundY-midY)*0.48, leftBaseX, groundY);
     ctx.lineTo(rightBaseX, groundY);
-
-    // right side curve up
-    ctx.bezierCurveTo(
-      (cx + ctrlOutBot), midY + (groundY-midY)*0.45,
-      (cx + ctrlOutTop), topY + (midY-topY)*0.35,
-      rightTopX, topY
-    );
-
+    ctx.bezierCurveTo(cx+ctrlBot, midY+(groundY-midY)*0.48, cx+ctrlTop, topY+(midY-topY)*0.38, rightTopX, topY);
     ctx.closePath();
     ctx.fill();
 
-    // strong outline for definition
-    ctx.strokeStyle = "rgba(255,255,255,0.34)";
-    ctx.lineWidth = 2.2;
+    // strong outline (definition)
+    ctx.strokeStyle='rgba(255,255,255,0.38)';
+    ctx.lineWidth=2.4;
     ctx.stroke();
 
     // debris base
-    ctx.fillStyle = "rgba(255,255,255,0.14)";
+    ctx.fillStyle='rgba(255,255,255,0.14)';
     ctx.beginPath();
-    ctx.ellipse(cx + wob*0.2, groundY + 12, baseW*0.60, 28, 0, 0, Math.PI*2);
+    ctx.ellipse(cx+wob*0.2, groundY+12, baseW*0.60, 28, 0, 0, Math.PI*2);
     ctx.fill();
 
-    // ✅ clear rotation swirl lines
-    const spin = perfT * 0.006;   // rotation speed
+    // rotation bands (clearer “spin”)
+    const spin=perfT*0.0065;
     ctx.save();
-    ctx.clip(); // keep swirl inside funnel
-    for (let i=0;i<12;i++){
-      const t = i/11;
-      const y = topY + t*(groundY-topY);
+    ctx.clip();
+    for(let i=0;i<14;i++){
+      const t=i/13;
+      const y=topY+t*(groundY-topY);
+      const wHere=topW+(baseW-topW)*t;
+      const phase=spin+t*9.5;
+      const xOff=Math.sin(phase)*(wHere*0.22);
+      const ringW=wHere*0.44;
+      const ringH=12+12*t;
 
-      // width at this height (simple linear blend)
-      const wHere = topW + (baseW-topW)*t;
-
-      // rotating offset that changes with height
-      const phase = spin + t*8.0;
-      const xOff = Math.sin(phase) * (wHere*0.18);
-      const ringW = wHere*0.40;
-      const ringH = 14 + 10*t;
-
-      ctx.strokeStyle = `rgba(255,255,255,${0.12 - t*0.06})`;
-      ctx.lineWidth = 2;
+      ctx.strokeStyle=`rgba(255,255,255,${0.15 - t*0.07})`;
+      ctx.lineWidth=2.2;
       ctx.beginPath();
-      ctx.ellipse(cx + xOff, y, ringW, ringH, 0, 0.2*Math.PI, 1.3*Math.PI);
+      ctx.ellipse(cx+xOff, y, ringW, ringH, 0, 0.15*Math.PI, 1.25*Math.PI);
       ctx.stroke();
     }
     ctx.restore();
 
-    // rope type: add skinny core
-    if (storm.type === "rope") {
-      ctx.strokeStyle = "rgba(255,255,255,0.22)";
-      ctx.lineWidth = 3;
+    // rope core line
+    if(storm.type==='rope' || storm.ropingOut){
+      ctx.strokeStyle='rgba(255,255,255,0.22)';
+      ctx.lineWidth=3;
       ctx.beginPath();
-      ctx.moveTo(cx + wob2, topY);
-      ctx.lineTo(cx + wob, groundY);
+      ctx.moveTo(cx+wob2, topY);
+      ctx.lineTo(cx+wob, groundY);
       ctx.stroke();
     }
 
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha=1;
   }
 
-  function drawBoltIfAny() {
-    if (!storm.bolt) return;
+  function drawBolt(){
+    if(!storm.bolt) return;
+    const b=storm.bolt, a=b.t;
 
-    const b = storm.bolt;
-    const a = b.t;
+    ctx.save();
+    ctx.globalCompositeOperation='lighter';
+    ctx.lineJoin='round';
 
     // glow
-    ctx.save();
-    ctx.globalCompositeOperation = 'lighter';
-
-    // thick faint glow
-    ctx.strokeStyle = `rgba(255,255,255,${0.22*a})`;
-    ctx.lineWidth = 10;
-    ctx.lineJoin = "round";
+    ctx.strokeStyle=`rgba(255,255,255,${0.22*a})`;
+    ctx.lineWidth=10;
     ctx.beginPath();
-    ctx.moveTo(b.pts[0].x, b.pts[0].y);
-    for (let i=1;i<b.pts.length;i++) ctx.lineTo(b.pts[i].x, b.pts[i].y);
+    ctx.moveTo(b.pts[0].x,b.pts[0].y);
+    for(let i=1;i<b.pts.length;i++) ctx.lineTo(b.pts[i].x,b.pts[i].y);
     ctx.stroke();
 
-    // bright core
-    ctx.strokeStyle = `rgba(255,255,255,${0.85*a})`;
-    ctx.lineWidth = 3;
+    // core
+    ctx.strokeStyle=`rgba(255,255,255,${0.88*a})`;
+    ctx.lineWidth=3;
     ctx.beginPath();
-    ctx.moveTo(b.pts[0].x, b.pts[0].y);
-    for (let i=1;i<b.pts.length;i++) ctx.lineTo(b.pts[i].x, b.pts[i].y);
+    ctx.moveTo(b.pts[0].x,b.pts[0].y);
+    for(let i=1;i<b.pts.length;i++) ctx.lineTo(b.pts[i].x,b.pts[i].y);
     ctx.stroke();
 
-    // branch
-    if (b.branch){
-      ctx.strokeStyle = `rgba(255,255,255,${0.55*a})`;
-      ctx.lineWidth = 2.5;
+    if(b.branch){
+      ctx.strokeStyle=`rgba(255,255,255,${0.55*a})`;
+      ctx.lineWidth=2.5;
       ctx.beginPath();
-      ctx.moveTo(b.branch[0].x, b.branch[0].y);
-      for (let i=1;i<b.branch.length;i++) ctx.lineTo(b.branch[i].x, b.branch[i].y);
+      ctx.moveTo(b.branch[0].x,b.branch[0].y);
+      for(let i=1;i<b.branch.length;i++) ctx.lineTo(b.branch[i].x,b.branch[i].y);
       ctx.stroke();
     }
-
     ctx.restore();
   }
 
-  // ---------- Mini map (EMOJIS) ----------
-  function drawEmoji(mctx, emoji, x, y, sizePx) {
-    mctx.font = `${sizePx}px system-ui, Apple Color Emoji, Segoe UI Emoji`;
-    mctx.textAlign = "center";
-    mctx.textBaseline = "middle";
-    mctx.fillText(emoji, x, y);
+  // ---------- Mini map (emoji objects) ----------
+  function drawEmoji(c, emoji, x, y, size){
+    c.font = `${size}px system-ui, Apple Color Emoji, Segoe UI Emoji`;
+    c.textAlign='center'; c.textBaseline='middle';
+    c.fillText(emoji, x, y);
   }
 
-  function drawMiniMap() {
-    const w = mini.getBoundingClientRect().width;
-    const h = mini.getBoundingClientRect().height;
-    const sx = w / world.w;
-    const sy = h / world.h;
+  function drawMiniMap(){
+    const w=mini.getBoundingClientRect().width;
+    const h=mini.getBoundingClientRect().height;
+    const sx=w/world.w, sy=h/world.h;
 
     mctx.clearRect(0,0,w,h);
-    mctx.fillStyle = 'rgba(10, 18, 35, 0.92)';
+    mctx.fillStyle='rgba(10,18,35,0.92)';
     mctx.fillRect(0,0,w,h);
 
-    // grid
-    mctx.strokeStyle = 'rgba(255,255,255,0.06)';
-    mctx.lineWidth = 1;
-    for (let x=0; x<=world.w; x+=world.grid){
-      mctx.beginPath();
-      mctx.moveTo(x*sx, 0);
-      mctx.lineTo(x*sx, h);
-      mctx.stroke();
-    }
-    for (let y=0; y<=world.h; y+=world.grid){
-      mctx.beginPath();
-      mctx.moveTo(0, y*sy);
-      mctx.lineTo(w, y*sy);
-      mctx.stroke();
-    }
+    mctx.strokeStyle='rgba(255,255,255,0.06)';
+    mctx.lineWidth=1;
+    for(let x=0;x<=world.w;x+=world.grid){ mctx.beginPath(); mctx.moveTo(x*sx,0); mctx.lineTo(x*sx,h); mctx.stroke(); }
+    for(let y=0;y<=world.h;y+=world.grid){ mctx.beginPath(); mctx.moveTo(0,y*sy); mctx.lineTo(w,y*sy); mctx.stroke(); }
 
-    // emojis scale with canvas a bit
     const baseSize = Math.max(14, Math.min(22, w/18));
 
-    // houses/trees as emojis
-    for (const o of world.objects){
-      const px = o.x*sx, py = o.y*sy;
-      drawEmoji(mctx, o.kind === "house" ? "🏠" : "🌳", px, py, baseSize);
+    for(const o of world.objects){
+      drawEmoji(mctx, o.kind==='house'?'🏠':'🌳', o.x*sx, o.y*sy, baseSize);
+    }
+    for(const c of world.cars){
+      drawEmoji(mctx, '🚗', c.x*sx, c.y*sy, baseSize);
     }
 
-    // cars as emojis (moving)
-    for (const c of world.cars){
-      const px = c.x*sx, py = c.y*sy;
-      drawEmoji(mctx, "🚗", px, py, baseSize);
-    }
-
-    // trail on mini map (white)
-    if (tornado.trail.length){
-      mctx.strokeStyle = 'rgba(255,255,255,0.20)';
-      mctx.lineWidth = 2;
+    // trail
+    if(tornado.trail.length){
+      mctx.strokeStyle='rgba(255,255,255,0.20)';
+      mctx.lineWidth=2;
       mctx.beginPath();
-      for (let i=0;i<tornado.trail.length;i++){
-        const p = tornado.trail[i];
-        const px = p.wx * sx, py = p.wy * sy;
-        if (i===0) mctx.moveTo(px, py);
-        else mctx.lineTo(px, py);
+      for(let i=0;i<tornado.trail.length;i++){
+        const p=tornado.trail[i];
+        const px=p.wx*sx, py=p.wy*sy;
+        if(i===0) mctx.moveTo(px,py); else mctx.lineTo(px,py);
       }
       mctx.stroke();
     }
 
-    // tornado marker + radius
-    const tx = tornado.x*sx, ty = tornado.y*sy;
-    if (storm.active){
-      const R = currentMiniRadius();
-      mctx.fillStyle = 'rgba(255,255,255,0.90)';
-      mctx.beginPath();
-      mctx.arc(tx, ty, 5, 0, Math.PI*2);
-      mctx.fill();
+    // tornado + radius
+    const tx=tornado.x*sx, ty=tornado.y*sy;
+    if(storm.active){
+      const R=currentMiniRadius();
+      mctx.fillStyle='rgba(255,255,255,0.90)';
+      mctx.beginPath(); mctx.arc(tx,ty,5,0,Math.PI*2); mctx.fill();
 
-      mctx.strokeStyle = 'rgba(255,255,255,0.25)';
-      mctx.lineWidth = 2;
-      mctx.beginPath();
-      mctx.arc(tx, ty, R*sx, 0, Math.PI*2);
-      mctx.stroke();
+      mctx.strokeStyle='rgba(255,255,255,0.26)';
+      mctx.lineWidth=2;
+      mctx.beginPath(); mctx.arc(tx,ty,R*sx,0,Math.PI*2); mctx.stroke();
     } else {
-      mctx.fillStyle = 'rgba(255,123,123,0.85)';
-      mctx.beginPath();
-      mctx.arc(tx, ty, 4, 0, Math.PI*2);
-      mctx.fill();
+      mctx.fillStyle='rgba(255,123,123,0.85)';
+      mctx.beginPath(); mctx.arc(tx,ty,4,0,Math.PI*2); mctx.fill();
     }
   }
 
   // ---------- Radar ----------
-  function drawRadar() {
-    const w = radar.getBoundingClientRect().width;
-    const h = radar.getBoundingClientRect().height;
-    const sx = w / world.w;
-    const sy = h / world.h;
+  function drawRadar(){
+    const w=radar.getBoundingClientRect().width;
+    const h=radar.getBoundingClientRect().height;
+    const sx=w/world.w, sy=h/world.h;
 
     rctx.clearRect(0,0,w,h);
-    rctx.fillStyle = 'rgba(0, 25, 12, 0.85)';
+    rctx.fillStyle='rgba(0,25,12,0.85)';
     rctx.fillRect(0,0,w,h);
 
-    // rings
-    rctx.strokeStyle = 'rgba(120,255,180,0.06)';
-    rctx.lineWidth = 1;
-    for (let i=0;i<7;i++){
+    rctx.strokeStyle='rgba(120,255,180,0.06)';
+    rctx.lineWidth=1;
+    for(let i=0;i<7;i++){
       rctx.beginPath();
-      rctx.arc(w/2, h/2, (Math.min(w,h)/2)*(i/7), 0, Math.PI*2);
+      rctx.arc(w/2,h/2,(Math.min(w,h)/2)*(i/7),0,Math.PI*2);
       rctx.stroke();
     }
 
-    // tornado point
-    if (storm.active){
-      const px = tornado.x*sx, py = tornado.y*sy;
-      rctx.fillStyle = 'rgba(120,255,180,0.75)';
-      rctx.beginPath();
-      rctx.arc(px, py, 4, 0, Math.PI*2);
-      rctx.fill();
+    if(storm.active){
+      const px=tornado.x*sx, py=tornado.y*sy;
+      rctx.fillStyle='rgba(120,255,180,0.75)';
+      rctx.beginPath(); rctx.arc(px,py,4,0,Math.PI*2); rctx.fill();
     }
 
-    // blips fade
-    for (const b of world.blips){
-      const px = b.x*sx, py = b.y*sy;
-      rctx.fillStyle = `rgba(255,255,255,${0.9*b.t})`;
-      rctx.beginPath();
-      rctx.arc(px, py, 3, 0, Math.PI*2);
-      rctx.fill();
+    for(const b of world.blips){
+      const px=b.x*sx, py=b.y*sy;
+      rctx.fillStyle=`rgba(255,255,255,${0.9*b.t})`;
+      rctx.beginPath(); rctx.arc(px,py,3,0,Math.PI*2); rctx.fill();
     }
   }
 
   // ---------- Status ----------
-  function updateStatusText() {
-    const kind = storm.type[0].toUpperCase() + storm.type.slice(1);
-    statusLine1.innerHTML = `Storm: <b>${kind}</b> • EF<b>${storm.ef}</b> • Rain: <b>${storm.hasRain ? 'ON' : 'OFF'}</b> • Lightning: <b>${storm.hasLightning ? 'ON' : 'OFF'}</b>`;
-    statusLine2.innerHTML = `Tornado: <b>${storm.active ? (storm.ropingOut ? 'Roping out' : 'Active') : 'Vanished'}</b> • Keep Tornado: <b>${storm.keepTornado ? 'ON' : 'OFF'}</b>`;
-    statusLine3.innerHTML = `Mini-map radius: <b>${Math.round(currentMiniRadius())} px</b> • Arrow keys: <b>move</b> (only if tornado exists)`;
+  function updateStatus(){
+    const kind=storm.type[0].toUpperCase()+storm.type.slice(1);
+    statusLine1.innerHTML = `Storm: <b>${kind}</b> • EF<b>${storm.ef}</b> • Rain: <b>${storm.hasRain?'ON':'OFF'}</b> • Lightning: <b>${storm.hasLightning?'ON':'OFF'}</b>`;
+    statusLine2.innerHTML = `Tornado: <b>${storm.active ? (storm.ropingOut?'Roping out':'Active') : 'Vanished'}</b> • Keep: <b>${storm.keepTornado?'ON':'OFF'}</b>`;
+    statusLine3.innerHTML = `Mini-map radius: <b>${Math.round(currentMiniRadius())} px</b> (wedge biggest, rope smallest)`;
   }
 
   // ---------- Main loop ----------
-  let last = performance.now();
+  let last=performance.now();
 
-  function step(now) {
-    const dt = Math.min(0.033, (now - last) / 1000);
-    last = now;
-    perfT = now;
+  function step(now){
+    const dt=Math.min(0.033, (now-last)/1000);
+    last=now; perfT=now;
 
-    // tornado movement ONLY if active
-    tornado.vx = 0; tornado.vy = 0;
-    if (storm.active){
-      if (keys.ArrowLeft) tornado.vx -= 1;
-      if (keys.ArrowRight) tornado.vx += 1;
-      if (keys.ArrowUp) tornado.vy -= 1;
-      if (keys.ArrowDown) tornado.vy += 1;
+    // movement only if tornado exists
+    tornado.vx=0; tornado.vy=0;
+    if(storm.active){
+      if(keys.ArrowLeft) tornado.vx-=1;
+      if(keys.ArrowRight) tornado.vx+=1;
+      if(keys.ArrowUp) tornado.vy-=1;
+      if(keys.ArrowDown) tornado.vy+=1;
 
-      const len = Math.hypot(tornado.vx, tornado.vy) || 1;
-      tornado.vx = (tornado.vx/len) * tornado.speed;
-      tornado.vy = (tornado.vy/len) * tornado.speed;
+      const len=Math.hypot(tornado.vx,tornado.vy)||1;
+      tornado.vx=(tornado.vx/len)*tornado.speed;
+      tornado.vy=(tornado.vy/len)*tornado.speed;
 
-      tornado.x = clamp(tornado.x + tornado.vx * (dt*60), 0, world.w);
-      tornado.y = clamp(tornado.y + tornado.vy * (dt*60), 0, world.h);
+      tornado.x=clamp(tornado.x + tornado.vx*(dt*60), 0, world.w);
+      tornado.y=clamp(tornado.y + tornado.vy*(dt*60), 0, world.h);
     }
 
     // rope out if keep off
-    if (!storm.keepTornado && storm.active && !storm.ropingOut) startRopeOut();
-    if (storm.ropingOut){
-      storm.vanishT += dt * 0.28; // ~3.5s
-      if (storm.vanishT >= 1){
-        storm.vanishT = 1;
-        storm.active = false;
-        storm.ropingOut = false;
+    if(!storm.keepTornado && storm.active && !storm.ropingOut) startRopeOut();
+    if(storm.ropingOut){
+      storm.vanishT += dt*0.28;
+      if(storm.vanishT>=1){
+        storm.vanishT=1;
+        storm.active=false; storm.ropingOut=false;
       }
     }
 
-    // trail: store screen coords + world coords
-    const simW = sim.getBoundingClientRect().width;
-    const simH = sim.getBoundingClientRect().height;
-    const screenX = simW*0.5 + Math.sin(now*0.005)*2;
-    const screenY = simH*0.56 + Math.cos(now*0.004)*2;
+    // trail (screen+world)
+    const simW=sim.getBoundingClientRect().width;
+    const simH=sim.getBoundingClientRect().height;
+    const screenX=simW*0.5 + Math.sin(now*0.005)*2;
+    const screenY=simH*0.56 + Math.cos(now*0.004)*2;
+    tornado.trail.push({sx:screenX, sy:screenY, wx:tornado.x, wy:tornado.y});
+    if(tornado.trail.length>110) tornado.trail.shift();
 
-    tornado.trail.push({ sx: screenX, sy: screenY, wx: tornado.x, wy: tornado.y });
-    if (tornado.trail.length > 100) tornado.trail.shift();
-
-    // lightning bolt logic (shape, no full flash)
+    // lightning bolt
     storm.boltCooldown = Math.max(0, storm.boltCooldown - dt);
-    if (storm.hasLightning && storm.boltCooldown <= 0 && Math.random() < 0.015){
-      const w = sim.getBoundingClientRect().width;
-      const h = sim.getBoundingClientRect().height;
-      generateBolt(w, h);
-      storm.boltCooldown = 0.8 + Math.random()*0.7; // delay between bolts
+    if(storm.hasLightning && storm.boltCooldown<=0 && Math.random()<0.015){
+      generateBolt(simW, simH);
+      storm.boltCooldown = 0.8 + Math.random()*0.7;
     }
-    if (storm.bolt){
-      storm.bolt.t -= dt * 2.2; // bolt fades fast
-      if (storm.bolt.t <= 0) storm.bolt = null;
+    if(storm.bolt){
+      storm.bolt.t -= dt*2.2;
+      if(storm.bolt.t<=0) storm.bolt=null;
     }
 
     // world updates
@@ -1023,51 +748,49 @@
     pushObjectsNearTornado(dt);
     updateObjectPhysics(dt);
 
-    for (let i=world.blips.length-1;i>=0;i--){
-      world.blips[i].t -= dt * 1.2;
-      if (world.blips[i].t <= 0) world.blips.splice(i,1);
+    for(let i=world.blips.length-1;i>=0;i--){
+      world.blips[i].t -= dt*1.2;
+      if(world.blips[i].t<=0) world.blips.splice(i,1);
     }
 
     resizeAll();
     draw();
     syncUI();
-    updateStatusText();
+    updateStatus();
 
     requestAnimationFrame(step);
   }
 
-  function draw() {
-    const w = sim.getBoundingClientRect().width;
-    const h = sim.getBoundingClientRect().height;
+  function draw(){
+    const w=sim.getBoundingClientRect().width;
+    const h=sim.getBoundingClientRect().height;
 
     ctx.clearRect(0,0,w,h);
-    drawSkyBackground(w,h);
+    drawSky(w,h);
 
-    // horizon
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    // ground
+    ctx.fillStyle='rgba(0,0,0,0.35)';
     ctx.fillRect(0, h*0.78, w, h*0.22);
 
     drawRain(w,h);
     drawTornadoMain(w,h);
-    drawBoltIfAny();
+    drawBolt();
 
-    // title label
-    ctx.fillStyle = 'rgba(233,238,255,0.85)';
-    ctx.font = '900 14px system-ui';
-    const kind = storm.type[0].toUpperCase() + storm.type.slice(1);
+    // label
+    ctx.fillStyle='rgba(233,238,255,0.85)';
+    ctx.font='950 14px system-ui';
+    const kind=storm.type[0].toUpperCase()+storm.type.slice(1);
     ctx.fillText(`${kind} • EF${storm.ef}`, 14, 24);
 
     drawMiniMap();
     drawRadar();
   }
 
-  // ---------- Init ----------
+  // ---------- Start ----------
   resizeAll();
   buildWorld();
-  tornado.x = world.w/2;
-  tornado.y = world.h/2;
-  syncUI();
-  updateStatusText();
+  tornado.x=world.w/2; tornado.y=world.h/2;
+  syncUI(); updateStatus();
   requestAnimationFrame(step);
 })();
 </script>

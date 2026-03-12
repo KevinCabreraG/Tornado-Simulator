@@ -471,16 +471,16 @@
     // tuned to your examples
     let topW, baseW, power;
     if(type==='wedge'){
-      topW = 280*s;    // wide top
-      baseW = 320*s;   // wide bottom
+      topW = 320*s;    // wide top
+      baseW = 200*s;   // wide bottom
       power = 0.65;    // keeps it fat
     } else if(type==='cone'){
-      topW = 55*s;     // narrow-ish at top
-      baseW = 210*s;   // not tiny at bottom
+      topW = 210*s;     // narrow-ish at top
+      baseW = 55*s;   // not tiny at bottom
       power = 1.25;    // grows more toward ground
     } else { // rope
-      topW = 16*s;
-      baseW = 22*s;
+      topW = 14*s;
+      baseW = 20*s;
       power = 1.00;
     }
 
